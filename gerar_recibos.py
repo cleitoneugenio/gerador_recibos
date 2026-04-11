@@ -164,10 +164,20 @@ def gerar_pdf(arquivo_xlsx: str, arquivo_pdf: str) -> None:
     print(f'PDF gerado: {arquivo_pdf} ({len(funcionarios)} recibos)')
 
 
+def resource_path(filename: str) -> str:
+    """Retorna o caminho correto para recursos dentro do .exe (PyInstaller) ou do script."""
+    base = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
+    return os.path.join(base, filename)
+
+
 def iniciar_gui():
     root = tk.Tk()
     root.title('Gerador de Recibos')
     root.resizable(False, False)
+
+    ico = resource_path('recibo.ico')
+    if os.path.exists(ico):
+        root.iconbitmap(ico)
 
     padding = {'padx': 10, 'pady': 5}
 
