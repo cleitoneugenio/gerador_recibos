@@ -13,3 +13,8 @@ documentacao_gerar_recibos.pdf
 # Excel (dados sensíveis)
 *.xlsx
 *.xls
+
+# PyInstaller
+build/
+dist/
+*.spec
