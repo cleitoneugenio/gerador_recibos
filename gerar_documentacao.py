@@ -1,0 +1,577 @@
+#!/usr/bin/env python3
+"""
+Gera a documentação do projeto gerar_recibos.py em PDF.
+Uso: python gerar_documentacao.py
+"""
+
+from reportlab.lib import colors
+from reportlab.lib.enums import TA_CENTER, TA_JUSTIFY, TA_LEFT
+from reportlab.lib.pagesizes import A4
+from reportlab.lib.styles import ParagraphStyle
+from reportlab.lib.units import cm
+from reportlab.platypus import (
+    HRFlowable,
+    Paragraph,
+    SimpleDocTemplate,
+    Spacer,
+    Table,
+    TableStyle,
+)
+
+
+# ---------------------------------------------------------------------------
+# Estilos
+# ---------------------------------------------------------------------------
+
+def criar_estilos() -> dict:
+    return {
+        'capa_titulo': ParagraphStyle(
+            'capa_titulo',
+            fontName='Helvetica-Bold',
+            fontSize=22,
+            alignment=TA_CENTER,
+            textColor=colors.HexColor('#1a1a2e'),
+            spaceAfter=10,
+        ),
+        'capa_sub': ParagraphStyle(
+            'capa_sub',
+            fontName='Helvetica',
+            fontSize=13,
+            alignment=TA_CENTER,
+            textColor=colors.HexColor('#444444'),
+            spaceAfter=6,
+        ),
+        'secao': ParagraphStyle(
+            'secao',
+            fontName='Helvetica-Bold',
+            fontSize=14,
+            textColor=colors.HexColor('#1a1a2e'),
+            spaceBefore=18,
+            spaceAfter=6,
+            borderPad=4,
+        ),
+        'subsecao': ParagraphStyle(
+            'subsecao',
+            fontName='Helvetica-Bold',
+            fontSize=11,
+            textColor=colors.HexColor('#2e4057'),
+            spaceBefore=10,
+            spaceAfter=4,
+        ),
+        'corpo': ParagraphStyle(
+            'corpo',
+            fontName='Helvetica',
+            fontSize=10,
+            alignment=TA_JUSTIFY,
+            leading=16,
+            spaceAfter=6,
+        ),
+        'codigo': ParagraphStyle(
+            'codigo',
+            fontName='Courier',
+            fontSize=9,
+            leading=14,
+            backColor=colors.HexColor('#f4f4f4'),
+            leftIndent=12,
+            rightIndent=12,
+            spaceBefore=4,
+            spaceAfter=4,
+        ),
+        'topico': ParagraphStyle(
+            'topico',
+            fontName='Helvetica',
+            fontSize=10,
+            leading=16,
+            leftIndent=14,
+            spaceAfter=3,
+        ),
+        'rodape': ParagraphStyle(
+            'rodape',
+            fontName='Helvetica',
+            fontSize=8,
+            alignment=TA_CENTER,
+            textColor=colors.grey,
+        ),
+    }
+
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+def divisor(cor=colors.HexColor('#cccccc')) -> list:
+    return [
+        Spacer(1, 0.3 * cm),
+        HRFlowable(width='100%', thickness=0.5, color=cor),
+        Spacer(1, 0.3 * cm),
+    ]
+
+
+def bloco_codigo(linhas: list, s: dict) -> list:
+    elementos = []
+    for linha in linhas:
+        elementos.append(Paragraph(linha, s['codigo']))
+    return elementos
+
+
+# ---------------------------------------------------------------------------
+# Seções do documento
+# ---------------------------------------------------------------------------
+
+def secao_capa(s: dict) -> list:
+    return [
+        Spacer(1, 2 * cm),
+        Paragraph('DOCUMENTAÇÃO TÉCNICA', s['capa_titulo']),
+        Paragraph('Gerador de Recibos de Prestação de Serviço', s['capa_sub']),
+        Spacer(1, 0.4 * cm),
+        HRFlowable(width='60%', thickness=2, color=colors.HexColor('#1a1a2e'), hAlign='CENTER'),
+        Spacer(1, 0.6 * cm),
+        Paragraph('Arquivo: <b>gerar_recibos.py</b>', s['capa_sub']),
+        Paragraph('Linguagem: <b>Python 3</b>', s['capa_sub']),
+        Paragraph('Bibliotecas: <b>pandas · ReportLab · num2words</b>', s['capa_sub']),
+        Spacer(1, 3 * cm),
+        Paragraph(
+            'Este documento explica passo a passo como o programa foi construído, '
+            'o motivo de cada escolha técnica e como utilizá-lo no dia a dia.',
+            s['corpo'],
+        ),
+    ]
+
+
+def secao_objetivo(s: dict) -> list:
+    return [
+        *divisor(),
+        Paragraph('1. OBJETIVO DO PROGRAMA', s['secao']),
+        Paragraph(
+            'O programa nasceu da necessidade de eliminar o trabalho manual de criar '
+            'recibos de pagamento toda semana para os funcionários da empresa '
+            '<b>GF MUNIZ ARTEFACTOS DE CERAMICA EIRELI</b>.',
+            s['corpo'],
+        ),
+        Paragraph(
+            'Toda semana existe uma planilha Excel (<b>.xlsx</b>) com os nomes dos '
+            'funcionários e os valores de diária de segunda a sábado. O programa lê '
+            'essa planilha automaticamente e gera um único arquivo PDF com todos os '
+            'recibos prontos para impressão e assinatura.',
+            s['corpo'],
+        ),
+        Paragraph('<b>Problema resolvido:</b>', s['subsecao']),
+        Paragraph('• Criar recibo por recibo manualmente levava muito tempo.', s['topico']),
+        Paragraph('• Risco de erro humano ao copiar nomes e valores.', s['topico']),
+        Paragraph('• Dificuldade em escrever o valor por extenso corretamente.', s['topico']),
+        Paragraph('<b>Solução entregue:</b>', s['subsecao']),
+        Paragraph('• Um único comando gera os ~20 recibos em segundos.', s['topico']),
+        Paragraph('• Valor por extenso gerado automaticamente em português.', s['topico']),
+        Paragraph('• Data preenchida automaticamente com o dia da geração.', s['topico']),
+        Paragraph('• Funcionários sem trabalho na semana são ignorados automaticamente.', s['topico']),
+    ]
+
+
+def secao_bibliotecas(s: dict) -> list:
+    dados_tabela = [
+        ['Biblioteca', 'Para que serve', 'Por que foi escolhida'],
+        ['pandas', 'Ler e processar o arquivo .xlsx', 'Biblioteca padrão para dados em Python; lida com Excel de forma simples e robusta'],
+        ['openpyxl', 'Motor de leitura de arquivos .xlsx', 'Exigida pelo pandas para abrir arquivos Excel modernos'],
+        ['ReportLab', 'Gerar o arquivo PDF', 'Biblioteca profissional para criação de PDFs em Python; permite controle total do layout'],
+        ['num2words', 'Converter número em texto por extenso', 'Suporte nativo ao português brasileiro (pt_BR); preciso e fácil de usar'],
+        ['os / sys', 'Lidar com arquivos e argumentos da linha de comando', 'Módulos nativos do Python; sem instalação extra'],
+        ['datetime', 'Obter a data atual do sistema', 'Módulo nativo do Python; fornece a data de geração do recibo automaticamente'],
+    ]
+
+    tabela = Table(
+        dados_tabela,
+        colWidths=[3.2 * cm, 4.5 * cm, 8.8 * cm],
+        repeatRows=1,
+    )
+    tabela.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1a1a2e')),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, 0), 9),
+        ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
+        ('FONTSIZE', (0, 1), (-1, -1), 8),
+        ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#f0f4f8')]),
+        ('GRID', (0, 0), (-1, -1), 0.4, colors.HexColor('#cccccc')),
+        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+        ('TOPPADDING', (0, 0), (-1, -1), 5),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
+        ('LEFTPADDING', (0, 0), (-1, -1), 6),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 6),
+        ('WORDWRAP', (0, 0), (-1, -1), True),
+    ]))
+
+    return [
+        *divisor(),
+        Paragraph('2. BIBLIOTECAS UTILIZADAS', s['secao']),
+        Paragraph(
+            'Antes de rodar o programa pela primeira vez, é necessário instalar as '
+            'bibliotecas externas com o comando abaixo no terminal:',
+            s['corpo'],
+        ),
+        *bloco_codigo(
+            ['pip install pandas openpyxl reportlab num2words'],
+            s,
+        ),
+        Spacer(1, 0.4 * cm),
+        tabela,
+    ]
+
+
+def secao_estrutura(s: dict) -> list:
+    return [
+        *divisor(),
+        Paragraph('3. ESTRUTURA DO PROGRAMA', s['secao']),
+        Paragraph(
+            'O programa é dividido em funções, cada uma com uma responsabilidade '
+            'específica. Essa separação torna o código mais fácil de entender, '
+            'testar e modificar no futuro.',
+            s['corpo'],
+        ),
+
+        Paragraph('3.1 — valor_por_extenso(valor)', s['subsecao']),
+        Paragraph(
+            'Recebe um número (ex: <b>395.0</b>) e retorna uma string formatada com '
+            'o valor em reais e o texto por extenso em português.',
+            s['corpo'],
+        ),
+        *bloco_codigo([
+            'def valor_por_extenso(valor: float) -> str:',
+            '    reais = int(valor)',
+            '    centavos = round((valor - reais) * 100)',
+            "    extenso = num2words(reais, lang='pt_BR') + ' reais'",
+            '    if centavos > 0:',
+            "        extenso += ' e ' + num2words(centavos, lang='pt_BR') + ' centavos'",
+            "    valor_fmt = f'R$ {valor:,.2f}'.replace(',','X').replace('.',',').replace('X','.')",
+            "    return f'{valor_fmt} ({extenso})'",
+        ], s),
+        Paragraph(
+            '<b>Por que assim?</b> O formato brasileiro usa vírgula como separador decimal '
+            '(R$ 395,00), mas o Python usa ponto. Por isso fazemos a substituição manualmente: '
+            'primeiro trocamos a vírgula por "X" (temporário), depois o ponto por vírgula, '
+            'e por fim o "X" por ponto — resultando no padrão correto.',
+            s['corpo'],
+        ),
+
+        Paragraph('3.2 — formatar_data(data)', s['subsecao']),
+        Paragraph(
+            'Converte um objeto <b>datetime</b> para o formato por extenso em português, '
+            'como: <b>11 de abril de 2026</b>.',
+            s['corpo'],
+        ),
+        *bloco_codigo([
+            'def formatar_data(data: datetime) -> str:',
+            "    meses = ['janeiro', 'fevereiro', 'março', ...]",
+            "    return f'{data.day} de {meses[data.month - 1]} de {data.year}'",
+        ], s),
+        Paragraph(
+            '<b>Por que assim?</b> O Python não tem suporte nativo a nomes de meses em '
+            'português sem configurar o locale do sistema operacional (o que pode falhar '
+            'dependendo do Windows). A lista manual garante que funciona em qualquer máquina.',
+            s['corpo'],
+        ),
+
+        Paragraph('3.3 — ler_funcionarios(arquivo)', s['subsecao']),
+        Paragraph(
+            'Lê o arquivo <b>.xlsx</b> com o pandas e retorna uma lista com nome e total '
+            'de cada funcionário que trabalhou na semana.',
+            s['corpo'],
+        ),
+        *bloco_codigo([
+            'def ler_funcionarios(arquivo: str) -> list:',
+            '    df = pd.read_excel(arquivo, header=0)',
+            '    for _, row in df.iterrows():',
+            '        try:',
+            '            int(row.iloc[0])   # col 0 = número do funcionário',
+            '        except (ValueError, TypeError):',
+            '            continue           # pula cabeçalho e linha TOTAL',
+            '        nome  = str(row.iloc[1]).strip()   # col 1 = nome',
+            '        total = float(row.iloc[10])        # col 10 = total',
+            '        if total <= 0: continue',
+            "        funcionarios.append({'nome': nome, 'total': total})",
+        ], s),
+        Paragraph(
+            '<b>Por que header=0?</b> A planilha tem uma linha de título no topo '
+            '("CONTROLE DE PONTO...") que o pandas usa automaticamente como nome das colunas. '
+            'Isso nos permite identificar as linhas de dados pelo conteúdo da primeira coluna.',
+            s['corpo'],
+        ),
+        Paragraph(
+            '<b>Por que tentar converter col[0] para int?</b> As linhas de dados têm '
+            'número de funcionário (1, 2, 3...). A linha de cabeçalho tem "#" e a linha '
+            'final tem "TOTAL" — ambas falham no int() e são ignoradas automaticamente.',
+            s['corpo'],
+        ),
+        Paragraph(
+            '<b>Por que ignorar total <= 0?</b> Funcionários que não trabalharam nenhum dia '
+            'na semana ficam com total zero. Não faz sentido gerar recibo de R$ 0,00.',
+            s['corpo'],
+        ),
+
+        Paragraph('3.4 — montar_recibo(nome, total, data_str, styles)', s['subsecao']),
+        Paragraph(
+            'Monta a lista de elementos visuais de um recibo individual: título, '
+            'texto do corpo, linha de assinatura e nome do funcionário.',
+            s['corpo'],
+        ),
+        *bloco_codigo([
+            'def montar_recibo(...) -> list:',
+            '    return [',
+            "        Paragraph('<u><b>RECIBO DE PRESTAÇÃO DE SERVIÇO</b></u>', titulo),",
+            '        Spacer(1, 0.5 * cm),',
+            '        Paragraph(corpo_texto, corpo),',
+            '        Spacer(1, 0.4 * cm),',
+            "        Paragraph(f'Bela Cruz, {data_str}.', corpo),",
+            '        Spacer(1, 1.8 * cm),',
+            "        HRFlowable(width='55%', ...),   # linha de assinatura",
+            '        Spacer(1, 0.25 * cm),',
+            '        Paragraph(nome, assinatura),',
+            '    ]',
+        ], s),
+        Paragraph(
+            '<b>Por que retornar uma lista?</b> O ReportLab trabalha com uma lista de '
+            '"flowables" (elementos que fluem pela página). Retornar a lista permite '
+            'envolvê-la em um <b>KeepTogether</b>, que garante que os elementos de um '
+            'mesmo recibo nunca sejam separados entre duas páginas.',
+            s['corpo'],
+        ),
+        Paragraph(
+            '<b>Por que &lt;u&gt; e &lt;b&gt; no título?</b> O ReportLab aceita '
+            'marcação XML dentro do texto dos parágrafos. A tag &lt;u&gt; aplica '
+            'sublinhado e &lt;b&gt; aplica negrito — exatamente o formato pedido para o título.',
+            s['corpo'],
+        ),
+
+        Paragraph('3.5 — gerar_pdf(arquivo_xlsx, arquivo_pdf)', s['subsecao']),
+        Paragraph(
+            'Função principal: lê os funcionários, monta todos os recibos e constrói o PDF.',
+            s['corpo'],
+        ),
+        *bloco_codigo([
+            'def gerar_pdf(arquivo_xlsx, arquivo_pdf):',
+            '    hoje = datetime.today()',
+            '    funcionarios = ler_funcionarios(arquivo_xlsx)',
+            '    doc = SimpleDocTemplate(arquivo_pdf, pagesize=A4, ...)',
+            '    story = []',
+            '    for i, func in enumerate(funcionarios):',
+            '        recibo = montar_recibo(...)',
+            '        story.append(KeepTogether(recibo))     # mantém recibo unido',
+            '        if i < len(funcionarios) - 1:',
+            '            story.append(HRFlowable(dash=(6,4)))  # linha tracejada',
+            '    doc.build(story)',
+        ], s),
+        Paragraph(
+            '<b>Por que KeepTogether?</b> Sem ele, um recibo poderia ser cortado no meio '
+            'entre uma página e outra. O KeepTogether move o bloco inteiro para a página '
+            'seguinte caso não caiba no espaço restante.',
+            s['corpo'],
+        ),
+        Paragraph(
+            '<b>Por que a linha tracejada (dash)?</b> Serve como guia visual para separar '
+            'os recibos ao imprimir e recortar, facilitando a distribuição para cada funcionário.',
+            s['corpo'],
+        ),
+
+        Paragraph('3.6 — main()', s['subsecao']),
+        Paragraph(
+            'Ponto de entrada do programa. Lê os argumentos passados na linha de comando '
+            'e chama a função gerar_pdf.',
+            s['corpo'],
+        ),
+        *bloco_codigo([
+            'def main():',
+            '    arquivo_xlsx = sys.argv[1]',
+            '    arquivo_pdf  = sys.argv[2] if len(sys.argv) >= 3 else',
+            "                   os.path.splitext(arquivo_xlsx)[0] + '_recibos.pdf'",
+            '    gerar_pdf(arquivo_xlsx, arquivo_pdf)',
+        ], s),
+        Paragraph(
+            '<b>Por que sys.argv?</b> Permite passar o nome do arquivo diretamente no '
+            'terminal, tornando o programa flexível para trabalhar com qualquer planilha '
+            '— não só a da semana atual.',
+            s['corpo'],
+        ),
+    ]
+
+
+def secao_layout(s: dict) -> list:
+    return [
+        *divisor(),
+        Paragraph('4. LAYOUT E ESTILOS DO PDF', s['secao']),
+        Paragraph(
+            'O ReportLab utiliza o conceito de <b>ParagraphStyle</b> para definir a '
+            'aparência de cada bloco de texto. Três estilos foram criados:',
+            s['corpo'],
+        ),
+        Paragraph('• <b>titulo</b> — Helvetica-Bold, 13pt, centralizado.', s['topico']),
+        Paragraph('• <b>corpo</b> — Helvetica, 10pt, justificado, entrelinha 15pt.', s['topico']),
+        Paragraph('• <b>assinatura</b> — Helvetica, 10pt, centralizado.', s['topico']),
+        Spacer(1, 0.3 * cm),
+        Paragraph(
+            'A página usa margens de <b>2 cm</b> nas laterais e <b>1,5 cm</b> no topo e '
+            'rodapé, aproveitando bem o espaço do A4 para caber o maior número possível '
+            'de recibos por página (em média 2 a 3, dependendo do comprimento do nome).',
+            s['corpo'],
+        ),
+    ]
+
+
+def secao_uso(s: dict) -> list:
+    return [
+        *divisor(),
+        Paragraph('5. COMO USAR O PROGRAMA', s['secao']),
+
+        Paragraph('Passo 1 — Instalar as dependências (apenas uma vez)', s['subsecao']),
+        *bloco_codigo(['pip install pandas openpyxl reportlab num2words'], s),
+
+        Paragraph('Passo 2 — Abrir o terminal na pasta do projeto', s['subsecao']),
+        Paragraph(
+            'No Windows Explorer, navegue até a pasta do projeto, clique na barra de '
+            'endereço, digite <b>cmd</b> e pressione Enter.',
+            s['corpo'],
+        ),
+
+        Paragraph('Passo 3 — Executar o programa', s['subsecao']),
+        Paragraph('<b>Opção A</b> — O PDF é gerado com o mesmo nome da planilha:', s['topico']),
+        *bloco_codigo(['python gerar_recibos.py ponto_cedan_semana.xlsx'], s),
+        Paragraph('<b>Opção B</b> — Definindo o nome do PDF de saída:', s['topico']),
+        *bloco_codigo(['python gerar_recibos.py ponto_cedan_semana.xlsx recibos_semana1.pdf'], s),
+
+        Paragraph('Passo 4 — Verificar o resultado', s['subsecao']),
+        Paragraph(
+            'O PDF é salvo na mesma pasta da planilha. Abra-o, confira os recibos '
+            'e imprima normalmente.',
+            s['corpo'],
+        ),
+
+        Paragraph('Regras automáticas do programa', s['subsecao']),
+        Paragraph('• Funcionários com total R$ 0,00 são ignorados (não gera recibo).', s['topico']),
+        Paragraph('• A data é sempre a do dia em que o programa é executado.', s['topico']),
+        Paragraph('• O valor por extenso é calculado automaticamente em português.', s['topico']),
+        Paragraph('• Se um recibo não couber na página atual, vai para a próxima.', s['topico']),
+    ]
+
+
+def secao_estrutura_planilha(s: dict) -> list:
+    dados_tabela = [
+        ['Coluna', 'Índice', 'Conteúdo esperado'],
+        ['#', '0', 'Número do funcionário (inteiro). Usado para identificar linhas de dados.'],
+        ['FUNCIONÁRIOS', '1', 'Nome completo do funcionário.'],
+        ['SEGUNDA', '2', 'Valor da diária ou "F" (falta).'],
+        ['TERÇA', '3', 'Valor da diária ou "F" (falta).'],
+        ['QUARTA', '4', 'Valor da diária ou "F" (falta).'],
+        ['QUINTA', '5', 'Valor da diária ou "F" (falta).'],
+        ['SEXTA', '6', 'Valor da diária ou "F" (falta).'],
+        ['SÁBADO', '7', 'Valor da diária ou "F" (falta).'],
+        ['DIAS', '8', 'Total de dias trabalhados.'],
+        ['BÔNUS', '9', 'Bônus (quando aplicável).'],
+        ['TOTAL', '10', 'Total a receber. É este valor que aparece no recibo.'],
+    ]
+
+    tabela = Table(
+        dados_tabela,
+        colWidths=[2.8 * cm, 1.8 * cm, 12 * cm],
+        repeatRows=1,
+    )
+    tabela.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#2e4057')),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, -1), 8),
+        ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
+        ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#f0f4f8')]),
+        ('GRID', (0, 0), (-1, -1), 0.4, colors.HexColor('#cccccc')),
+        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+        ('TOPPADDING', (0, 0), (-1, -1), 5),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
+        ('LEFTPADDING', (0, 0), (-1, -1), 6),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 6),
+    ]))
+
+    return [
+        *divisor(),
+        Paragraph('6. ESTRUTURA ESPERADA DA PLANILHA', s['secao']),
+        Paragraph(
+            'O programa foi desenvolvido para ler planilhas no seguinte formato:',
+            s['corpo'],
+        ),
+        tabela,
+        Spacer(1, 0.4 * cm),
+        Paragraph(
+            '<b>Atenção:</b> a planilha deve ter uma linha de título mesclado no topo '
+            '(ex: "CONTROLE DE PONTO") e uma linha de cabeçalho com os nomes das colunas. '
+            'A última linha com "TOTAL" é ignorada automaticamente.',
+            s['corpo'],
+        ),
+    ]
+
+
+def secao_futuro(s: dict) -> list:
+    return [
+        *divisor(),
+        Paragraph('7. PRÓXIMOS PASSOS PREVISTOS', s['secao']),
+        Paragraph(
+            'O programa foi construído de forma modular justamente para facilitar '
+            'a evolução futura sem precisar reescrever tudo.',
+            s['corpo'],
+        ),
+        Paragraph(
+            '• <b>Interface gráfica (GUI):</b> adicionar uma tela com botão para '
+            'selecionar a planilha e gerar o PDF — eliminando a necessidade do terminal.',
+            s['topico'],
+        ),
+        Paragraph(
+            '• <b>Pré-visualização:</b> mostrar os recibos na tela antes de salvar o PDF.',
+            s['topico'],
+        ),
+        Paragraph(
+            '• <b>Personalização:</b> permitir alterar dados da empresa (CNPJ, endereço) '
+            'direto pela interface sem editar o código.',
+            s['topico'],
+        ),
+        Paragraph(
+            '• <b>Histórico:</b> salvar um registro de quais recibos foram gerados e quando.',
+            s['topico'],
+        ),
+    ]
+
+
+# ---------------------------------------------------------------------------
+# Geração do PDF
+# ---------------------------------------------------------------------------
+
+def gerar_documentacao():
+    arquivo_pdf = (
+        r'C:\Users\cleit\OneDrive\Documentos\recibo_de_pagamento'
+        r'\documentacao_gerar_recibos.pdf'
+    )
+
+    doc = SimpleDocTemplate(
+        arquivo_pdf,
+        pagesize=A4,
+        leftMargin=2.2 * cm,
+        rightMargin=2.2 * cm,
+        topMargin=2 * cm,
+        bottomMargin=2 * cm,
+    )
+
+    s = criar_estilos()
+
+    story = []
+    story += secao_capa(s)
+    story += secao_objetivo(s)
+    story += secao_bibliotecas(s)
+    story += secao_estrutura(s)
+    story += secao_layout(s)
+    story += secao_uso(s)
+    story += secao_estrutura_planilha(s)
+    story += secao_futuro(s)
+    story += divisor()
+    story.append(Spacer(1, 0.5 * cm))
+    story.append(Paragraph('Fim da documentação.', s['rodape']))
+
+    doc.build(story)
+    print(f'Documentação gerada: {arquivo_pdf}')
+
+
+if __name__ == '__main__':
+    gerar_documentacao()

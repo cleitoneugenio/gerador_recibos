@@ -1,0 +1,15 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.env
+venv/
+.venv/
+
+# PDFs gerados
+*_recibos.pdf
+documentacao_gerar_recibos.pdf
+
+# Excel (dados sensíveis)
+*.xlsx
+*.xls
