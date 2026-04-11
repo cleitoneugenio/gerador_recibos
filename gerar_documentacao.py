@@ -750,14 +750,277 @@ def secao_gui(s: dict) -> list:
     ]
 
 
+def secao_executavel(s: dict) -> list:
+    dados_flags = [
+        ['Flag / Opção', 'O que faz', 'Por que foi usada'],
+        ['--onefile', 'Empacota tudo em um único .exe', 'O usuário recebe um só arquivo para copiar e usar — sem pastas auxiliares, sem risco de esquecer alguma DLL.'],
+        ['--windowed', 'Suprime a janela de terminal (cmd)', 'Como o programa tem GUI, o terminal aberto junto seria distração visual e assustaria usuários não técnicos.'],
+        ['--name "GeradorRecibos"', 'Define o nome do executável gerado', 'Sem esta flag o nome seria gerar_recibos.exe (nome do script). O nome amigável fica mais claro para o usuário final.'],
+    ]
+
+    tabela_flags = Table(
+        dados_flags,
+        colWidths=[3.8 * cm, 4.2 * cm, 8.5 * cm],
+        repeatRows=1,
+    )
+    tabela_flags.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1a237e')),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, -1), 8),
+        ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
+        ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#f0f4f8')]),
+        ('GRID', (0, 0), (-1, -1), 0.4, colors.HexColor('#cccccc')),
+        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+        ('TOPPADDING', (0, 0), (-1, -1), 5),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
+        ('LEFTPADDING', (0, 0), (-1, -1), 6),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 6),
+    ]))
+
+    dados_ferramentas = [
+        ['Ferramenta', 'Abordagem', 'Veredicto'],
+        ['PyInstaller', 'Empacota o interpretador Python + dependências + script em um exe', '✔ Escolhido — maduro, amplamente documentado, suporte nativo a tkinter/pandas/reportlab.'],
+        ['cx_Freeze', 'Gera uma pasta com exe + DLLs (não onefile por padrão)', '✘ Onefile mais trabalhoso; menos hooks automáticos para bibliotecas científicas.'],
+        ['Nuitka', 'Compila Python para C e gera exe nativo', '✘ Requer compilador C instalado (MSVC/MinGW); build muito mais lento; complexidade desnecessária para este caso.'],
+        ['py2exe', 'Clássico empacotador Windows', '✘ Abandonado para Python 3.9+; sem suporte ao Python 3.14 usado no projeto.'],
+    ]
+
+    tabela_ferramentas = Table(
+        dados_ferramentas,
+        colWidths=[2.8 * cm, 5.5 * cm, 8.2 * cm],
+        repeatRows=1,
+    )
+    tabela_ferramentas.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#37474f')),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, -1), 8),
+        ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
+        ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#f0f4f8')]),
+        ('GRID', (0, 0), (-1, -1), 0.4, colors.HexColor('#cccccc')),
+        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+        ('TOPPADDING', (0, 0), (-1, -1), 5),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
+        ('LEFTPADDING', (0, 0), (-1, -1), 6),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 6),
+    ]))
+
+    return [
+        *divisor(),
+        Paragraph('8. GERAÇÃO DO EXECUTÁVEL WINDOWS (.exe) — PASSO A PASSO', s['secao']),
+        Paragraph(
+            'Para que o programa funcione em qualquer computador Windows sem precisar instalar '
+            'o Python, ele foi convertido em um arquivo executável (.exe) usando a ferramenta '
+            '<b>PyInstaller</b>. Esta seção documenta cada decisão tomada durante esse processo.',
+            s['corpo'],
+        ),
+
+        # ── PASSO 1 ──
+        Paragraph('Passo 1 — Escolha da ferramenta de empacotamento', s['subsecao']),
+        Paragraph(
+            'Existem quatro ferramentas principais para converter scripts Python em executáveis '
+            'Windows. Todas foram avaliadas:',
+            s['corpo'],
+        ),
+        tabela_ferramentas,
+        Spacer(1, 0.3 * cm),
+        Paragraph(
+            '<b>Por que PyInstaller?</b> É a única opção com suporte testado e hooks automáticos '
+            'para as três bibliotecas do projeto (pandas, reportlab, tkinter) no Python 3.14, sem '
+            'exigir configuração manual adicional.',
+            s['corpo'],
+        ),
+
+        # ── PASSO 2 ──
+        Paragraph('Passo 2 — Instalação do PyInstaller', s['subsecao']),
+        Paragraph(
+            'O PyInstaller não vem com o Python — precisa ser instalado uma única vez na '
+            'máquina de desenvolvimento:',
+            s['corpo'],
+        ),
+        *bloco_codigo(['pip install pyinstaller'], s),
+        Paragraph(
+            '<b>Nota:</b> O PyInstaller é uma ferramenta de <i>desenvolvimento</i>. Ela '
+            'não precisa estar instalada na máquina do usuário final — apenas na máquina '
+            'onde o .exe é gerado.',
+            s['corpo'],
+        ),
+
+        # ── PASSO 3 ──
+        Paragraph('Passo 3 — Comando de geração do executável', s['subsecao']),
+        Paragraph('O comando completo utilizado foi:', s['corpo']),
+        *bloco_codigo([
+            'python -m PyInstaller --onefile --windowed --name "GeradorRecibos" gerar_recibos.py',
+        ], s),
+        Paragraph('Detalhamento de cada flag:', s['corpo']),
+        tabela_flags,
+        Spacer(1, 0.3 * cm),
+        Paragraph(
+            '<b>Por que python -m PyInstaller e não pyinstaller direto?</b> O pip instalou '
+            'o executável pyinstaller.exe em uma pasta fora do PATH do sistema. Usar '
+            '<i>python -m PyInstaller</i> garante que o módulo correto seja chamado, '
+            'independente de configuração de PATH.',
+            s['corpo'],
+        ),
+
+        # ── PASSO 4 ──
+        Paragraph('Passo 4 — O que acontece internamente durante o build', s['subsecao']),
+        Paragraph(
+            'O PyInstaller executa as seguintes etapas automaticamente:',
+            s['corpo'],
+        ),
+        Paragraph(
+            '<b>1. Análise de dependências:</b> Percorre todas as importações do script '
+            '(<i>import pandas</i>, <i>import reportlab</i>, etc.) e mapeia recursivamente '
+            'todos os módulos necessários, incluindo dependências de dependências.',
+            s['topico'],
+        ),
+        Paragraph(
+            '<b>2. Hooks automáticos:</b> Para bibliotecas complexas como pandas e reportlab, '
+            'o PyInstaller aplica "hooks" — scripts que incluem arquivos de dados extras '
+            'que a análise estática não detectaria (ex: fontes do reportlab, dados de fuso '
+            'horário do pandas).',
+            s['topico'],
+        ),
+        Paragraph(
+            '<b>3. Empacotamento em PYZ:</b> Os módulos Python são compilados para bytecode '
+            '(.pyc) e comprimidos em um arquivo <i>PYZ-00.pyz</i>.',
+            s['topico'],
+        ),
+        Paragraph(
+            '<b>4. Bootloader:</b> Um pequeno programa C (runw.exe para modo windowed) é '
+            'usado como ponto de entrada. Ao ser executado, ele extrai os arquivos para uma '
+            'pasta temporária e inicializa o interpretador Python embutido.',
+            s['topico'],
+        ),
+        Paragraph(
+            '<b>5. Empacotamento final:</b> Bootloader + PYZ + DLLs + dados são costurados '
+            'em um único <i>GeradorRecibos.exe</i> (~40 MB).',
+            s['topico'],
+        ),
+
+        # ── PASSO 5 ──
+        Paragraph('Passo 5 — Estrutura de arquivos gerada', s['subsecao']),
+        *bloco_codigo([
+            'recibo_de_pagamento/',
+            '├── build/                  ← arquivos intermediários do build (ignorar)',
+            '│   └── GeradorRecibos/',
+            '│       ├── Analysis-00.toc',
+            '│       ├── PYZ-00.pyz',
+            '│       ├── warn-GeradorRecibos.txt',
+            '│       └── ...',
+            '├── dist/                   ← pasta de saída',
+            '│   └── GeradorRecibos.exe  ← ✔ este é o arquivo para distribuir',
+            '└── GeradorRecibos.spec     ← receita de build gerada automaticamente',
+        ], s),
+        Paragraph(
+            '<b>build/:</b> Arquivos temporários usados durante o processo. Podem ser '
+            'apagados após o build sem problema — o PyInstaller os recria na próxima execução.',
+            s['corpo'],
+        ),
+        Paragraph(
+            '<b>dist/GeradorRecibos.exe:</b> O único arquivo necessário para distribuir. '
+            'Pode ser copiado para qualquer computador Windows e executado com dois cliques.',
+            s['corpo'],
+        ),
+        Paragraph(
+            '<b>GeradorRecibos.spec:</b> Arquivo de configuração gerado automaticamente. '
+            'Registra todas as opções usadas. Pode ser editado para builds avançados '
+            '(adicionar ícone, incluir arquivos extras, etc.).',
+            s['corpo'],
+        ),
+
+        # ── PASSO 6 ──
+        Paragraph('Passo 6 — .gitignore: o que versionar e o que ignorar', s['subsecao']),
+        Paragraph(
+            'Os arquivos de build <b>não devem</b> ser versionados no git — são pesados, '
+            'gerados automaticamente e específicos da máquina de desenvolvimento. '
+            'O arquivo <i>.gitignore</i> foi atualizado com:',
+            s['corpo'],
+        ),
+        *bloco_codigo([
+            '# PyInstaller',
+            'build/',
+            'dist/',
+            '*.spec',
+        ], s),
+        Paragraph(
+            '<b>Por que ignorar o .spec?</b> O .spec é gerado a partir do comando com as '
+            'flags e pode ser recriado a qualquer momento. Versionar arquivos gerados '
+            'automaticamente cria ruído desnecessário no histórico git.',
+            s['corpo'],
+        ),
+
+        # ── PASSO 7 ──
+        Paragraph('Passo 7 — Como regenerar o executável após mudanças', s['subsecao']),
+        Paragraph(
+            'Sempre que o código do <i>gerar_recibos.py</i> for alterado, o executável '
+            'precisa ser gerado novamente. O comando é sempre o mesmo:',
+            s['corpo'],
+        ),
+        *bloco_codigo([
+            'python -m PyInstaller --onefile --windowed --name "GeradorRecibos" gerar_recibos.py',
+        ], s),
+        Paragraph(
+            'O PyInstaller detecta os arquivos de build anteriores e reutiliza o que '
+            'não mudou, tornando builds subsequentes mais rápidos que o primeiro.',
+            s['corpo'],
+        ),
+
+        # ── PASSO 8 ──
+        Paragraph('Passo 8 — Como distribuir para outro computador', s['subsecao']),
+        Paragraph(
+            'O arquivo <b>dist\\GeradorRecibos.exe</b> é completamente autossuficiente. '
+            'Para instalar em outro computador Windows:',
+            s['corpo'],
+        ),
+        Paragraph(
+            '1. Copie o arquivo <i>GeradorRecibos.exe</i> para o computador de destino '
+            '(pen drive, e-mail, OneDrive, etc.).',
+            s['topico'],
+        ),
+        Paragraph(
+            '2. Coloque-o em qualquer pasta (ex: Área de Trabalho ou Documentos).',
+            s['topico'],
+        ),
+        Paragraph(
+            '3. Dê dois cliques para abrir. Na primeira execução, o Windows Defender pode '
+            'exibir um aviso de "aplicativo desconhecido" — clique em <i>Mais informações</i> '
+            'e depois em <i>Executar assim mesmo</i>. Isso acontece porque o executável não '
+            'tem assinatura digital (certificado pago).',
+            s['topico'],
+        ),
+        Paragraph(
+            '4. Não é necessário instalar Python, pip ou qualquer dependência.',
+            s['topico'],
+        ),
+
+        # ── AVISO IMPORTANTE ──
+        Spacer(1, 0.3 * cm),
+        Paragraph(
+            '<b>Importante — compatibilidade de sistema operacional:</b> O executável gerado '
+            'no Windows 64-bit roda <b>somente</b> em Windows 64-bit. Para rodar em Windows '
+            '32-bit seria necessário gerar o .exe em uma máquina 32-bit. Para macOS ou Linux '
+            'seria necessário gerar o executável nesses sistemas operacionais separadamente.',
+            s['corpo'],
+        ),
+    ]
+
+
 def secao_futuro(s: dict) -> list:
     return [
         *divisor(),
-        Paragraph('8. PRÓXIMOS PASSOS PREVISTOS', s['secao']),
+        Paragraph('9. PRÓXIMOS PASSOS PREVISTOS', s['secao']),
         Paragraph(
-            'O programa já conta com interface gráfica. As melhorias abaixo são sugestões '
-            'para evoluções futuras.',
+            'O programa já conta com interface gráfica e executável Windows. '
+            'As melhorias abaixo são sugestões para evoluções futuras.',
             s['corpo'],
+        ),
+        Paragraph(
+            '• <b>Ícone personalizado:</b> adicionar um ícone .ico ao executável usando '
+            'a flag --icon do PyInstaller.',
+            s['topico'],
         ),
         Paragraph(
             '• <b>Pré-visualização:</b> mostrar os recibos na tela antes de salvar o PDF.',
@@ -805,6 +1068,7 @@ def gerar_documentacao():
     story += secao_uso(s)
     story += secao_estrutura_planilha(s)
     story += secao_gui(s)
+    story += secao_executavel(s)
     story += secao_futuro(s)
     story += divisor()
     story.append(Spacer(1, 0.5 * cm))
