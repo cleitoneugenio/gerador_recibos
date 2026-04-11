@@ -505,19 +505,259 @@ def secao_estrutura_planilha(s: dict) -> list:
     ]
 
 
-def secao_futuro(s: dict) -> list:
+def secao_gui(s: dict) -> list:
+    dados_componentes = [
+        ['Componente', 'Widget tkinter', 'Justificativa'],
+        ['Rótulos', 'tk.Label', 'Texto estático para identificar cada campo da tela.'],
+        ['Campos de texto', 'tk.Entry + StringVar', 'Permitem leitura e escrita do caminho do arquivo. StringVar separa modelo da visão.'],
+        ['Botões de arquivo', 'tk.Button + filedialog', 'Abrem o diálogo nativo do Windows — familiar ao usuário, sem necessidade de digitar o caminho.'],
+        ['Barra de progresso', 'ttk.Progressbar', 'Indica que o programa está trabalhando. Modo indeterminate correto pois não há percentual real.'],
+        ['Label de status', 'tk.Label + StringVar', 'Feedback textual contínuo sem interromper o fluxo com caixas de diálogo.'],
+        ['Botão principal', 'tk.Button', 'Cor verde (#2e7d32) destaca a ação principal. Desabilitado durante execução para evitar cliques duplos.'],
+        ['Diálogo de conclusão', 'messagebox.askyesno', 'Pergunta se o usuário quer abrir o PDF. Não abre automaticamente para não interromper quem gera vários arquivos.'],
+    ]
+
+    tabela = Table(
+        dados_componentes,
+        colWidths=[3.5 * cm, 3.5 * cm, 9.5 * cm],
+        repeatRows=1,
+    )
+    tabela.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#2e7d32')),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, -1), 8),
+        ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
+        ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#f0f4f8')]),
+        ('GRID', (0, 0), (-1, -1), 0.4, colors.HexColor('#cccccc')),
+        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+        ('TOPPADDING', (0, 0), (-1, -1), 5),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
+        ('LEFTPADDING', (0, 0), (-1, -1), 6),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 6),
+    ]))
+
     return [
         *divisor(),
-        Paragraph('7. PRÓXIMOS PASSOS PREVISTOS', s['secao']),
+        Paragraph('7. INTERFACE GRÁFICA (GUI) — IMPLEMENTAÇÃO PASSO A PASSO', s['secao']),
         Paragraph(
-            'O programa foi construído de forma modular justamente para facilitar '
-            'a evolução futura sem precisar reescrever tudo.',
+            'A interface gráfica foi adicionada ao script para eliminar a necessidade do terminal. '
+            'O comportamento é preservado: sem argumentos → abre a janela; com argumentos → modo '
+            'CLI original. Toda a lógica de geração de PDF permanece inalterada.',
+            s['corpo'],
+        ),
+
+        # ── PASSO 1 ──
+        Paragraph('Passo 1 — Escolha da biblioteca: tkinter', s['subsecao']),
+        Paragraph(
+            'Foram avaliadas quatro opções de biblioteca gráfica para Python:',
             s['corpo'],
         ),
         Paragraph(
-            '• <b>Interface gráfica (GUI):</b> adicionar uma tela com botão para '
-            'selecionar a planilha e gerar o PDF — eliminando a necessidade do terminal.',
+            '• <b>tkinter</b> ✔ — já vem embutida no Python; sem instalação; usa controles '
+            'nativos do Windows; estável e bem documentada.',
             s['topico'],
+        ),
+        Paragraph(
+            '• <b>PyQt / PySide6</b> ✘ — exige instalação (~60 MB); licença LGPL com '
+            'restrições; complexidade desnecessária para um formulário simples.',
+            s['topico'],
+        ),
+        Paragraph(
+            '• <b>wxPython</b> ✘ — instalação adicional; menos popular; documentação mais escassa.',
+            s['topico'],
+        ),
+        Paragraph(
+            '• <b>Dear PyGui</b> ✘ — voltado para dashboards e jogos; API inadequada para '
+            'formulários de escritório.',
+            s['topico'],
+        ),
+        Paragraph(
+            '<b>Decisão:</b> tkinter foi escolhido por custo zero de instalação e suficiência '
+            'total para o caso de uso.',
+            s['corpo'],
+        ),
+
+        # ── PASSO 2 ──
+        Paragraph('Passo 2 — Criação da janela principal', s['subsecao']),
+        *bloco_codigo([
+            'root = tk.Tk()',
+            'root.title("Gerador de Recibos")',
+            'root.resizable(False, False)',
+        ], s),
+        Paragraph(
+            '<b>resizable(False, False):</b> A janela tem largura fixa definida pelos Entry de '
+            'largura 50 caracteres. Permitir redimensionamento sem lógica de responsividade '
+            'distorceria os widgets — fixar o tamanho é mais simples e correto para este layout.',
+            s['corpo'],
+        ),
+
+        # ── PASSO 3 ──
+        Paragraph('Passo 3 — Campos de entrada com StringVar', s['subsecao']),
+        *bloco_codigo([
+            'var_xlsx = tk.StringVar()',
+            'entry_xlsx = tk.Entry(root, textvariable=var_xlsx, width=50)',
+        ], s),
+        Paragraph(
+            '<b>Por que StringVar?</b> O tkinter segue o padrão MVC: a <i>StringVar</i> é o '
+            'modelo e o <i>Entry</i> é a visão. Ler ou escrever o valor via '
+            '<i>var_xlsx.get() / var_xlsx.set()</i> evita referenciar diretamente o widget, '
+            'tornando o código mais limpo e testável.',
+            s['corpo'],
+        ),
+
+        # ── PASSO 4 ──
+        Paragraph('Passo 4 — Diálogos nativos de arquivo', s['subsecao']),
+        *bloco_codigo([
+            '# Abrir planilha:',
+            "caminho = filedialog.askopenfilename(",
+            "    title='Selecionar planilha',",
+            "    filetypes=[('Excel', '*.xlsx *.xls'), ('Todos', '*.*')],",
+            ')',
+            '',
+            '# Salvar PDF:',
+            "caminho = filedialog.asksaveasfilename(",
+            "    title='Salvar PDF como',",
+            "    defaultextension='.pdf',",
+            "    filetypes=[('PDF', '*.pdf')],",
+            ')',
+        ], s),
+        Paragraph(
+            '<b>askopenfilename vs asksaveasfilename:</b> O primeiro só aceita arquivos '
+            'existentes; o segundo permite digitar um nome novo. O parâmetro '
+            '<i>defaultextension=".pdf"</i> garante a extensão correta mesmo que o usuário '
+            'não a escreva.',
+            s['corpo'],
+        ),
+        Paragraph(
+            '<b>Preenchimento automático do PDF:</b> Ao selecionar a planilha, o caminho do '
+            'PDF é preenchido automaticamente (mesmo nome, extensão _recibos.pdf) se o campo '
+            'ainda estiver vazio. Reduz o número de interações necessárias no caso mais comum.',
+            s['corpo'],
+        ),
+
+        # ── PASSO 5 ──
+        Paragraph('Passo 5 — Barra de progresso no modo indeterminate', s['subsecao']),
+        *bloco_codigo([
+            "progress = ttk.Progressbar(root, mode='indeterminate', length=400)",
+            '# Iniciar animação:',
+            'progress.start(10)   # intervalo de 10ms entre quadros',
+            '# Parar:',
+            'progress.stop()',
+        ], s),
+        Paragraph(
+            '<b>Por que mode="indeterminate"?</b> A geração do PDF não reporta etapas '
+            'intermediárias — só se sabe quando começa e quando termina. O modo '
+            '<i>determinate</i> (barra que vai de 0% a 100%) seria semanticamente errado '
+            'pois induziria o usuário a inferir um percentual inexistente.',
+            s['corpo'],
+        ),
+        Paragraph(
+            '<b>Por que ttk e não tk?</b> O widget <i>tk.Progressbar</i> não existe. '
+            'O <i>ttk.Progressbar</i> é a implementação oficial, com visual integrado ao '
+            'tema do Windows.',
+            s['corpo'],
+        ),
+
+        # ── PASSO 6 ──
+        Paragraph('Passo 6 — Execução em thread separada (ponto crítico)', s['subsecao']),
+        Paragraph(
+            'Este é o componente mais importante da implementação. O tkinter roda em uma '
+            'única thread e processa todos os eventos (cliques, redesenhos, animações) '
+            'em seu <i>event loop</i>. Se <b>gerar_pdf()</b> fosse chamada diretamente '
+            'no botão, a janela congelaria completamente até o término — a barra de '
+            'progresso pararia e o Windows marcaria o programa como "Não respondendo".',
+            s['corpo'],
+        ),
+        *bloco_codigo([
+            'def executar():',
+            '    # validações de entrada...',
+            '    btn_gerar.config(state="disabled")  # bloqueia novo clique',
+            '    progress.start(10)',
+            '    def tarefa():',
+            '        try:',
+            '            gerar_pdf(xlsx, pdf)',
+            '            root.after(0, lambda: concluido(pdf))',
+            '        except Exception as exc:',
+            '            root.after(0, lambda: erro(str(exc)))',
+            '    threading.Thread(target=tarefa, daemon=True).start()',
+        ], s),
+        Paragraph(
+            '<b>threading.Thread:</b> Módulo da biblioteca padrão. Suficiente para tarefas '
+            'I/O-bound como escrita de arquivo — não exige asyncio nem concurrent.futures.',
+            s['corpo'],
+        ),
+        Paragraph(
+            '<b>daemon=True:</b> A thread é marcada como daemon para encerrar automaticamente '
+            'caso o usuário feche a janela antes do término, evitando processos zumbis.',
+            s['corpo'],
+        ),
+        Paragraph(
+            '<b>root.after(0, callback):</b> O tkinter não é thread-safe — widgets '
+            'NUNCA devem ser atualizados de dentro de outra thread. O método '
+            '<i>root.after(0, callback)</i> agenda a execução do callback no event loop '
+            'principal, tornando a atualização segura.',
+            s['corpo'],
+        ),
+        Paragraph(
+            '<b>try/except dentro da thread:</b> Erros em threads secundárias não '
+            'propagam para a thread principal — eles simplesmente desaparecem. O bloco '
+            'try/except captura a exceção e a envia ao event loop via root.after para '
+            'exibição ao usuário.',
+            s['corpo'],
+        ),
+
+        # ── PASSO 7 ──
+        Paragraph('Passo 7 — Diálogo pós-conclusão e abertura do arquivo', s['subsecao']),
+        *bloco_codigo([
+            "if messagebox.askyesno('Concluído',",
+            "                       f'PDF gerado:\\n{pdf}\\n\\nDeseja abrir o arquivo?'):",
+            '    os.startfile(pdf)',
+        ], s),
+        Paragraph(
+            '<b>messagebox.askyesno:</b> Preferido sobre abrir o arquivo automaticamente '
+            'para respeitar o fluxo do usuário — ele pode gerar vários PDFs em sequência '
+            'e não querer interrupções a cada um.',
+            s['corpo'],
+        ),
+        Paragraph(
+            '<b>os.startfile:</b> Abre o PDF com o programa padrão do sistema (Reader, '
+            'Edge, etc.) sem hardcodar um aplicativo específico. É a abordagem idiomática '
+            'no Windows.',
+            s['corpo'],
+        ),
+
+        # ── PASSO 8 ──
+        Paragraph('Passo 8 — Compatibilidade com o modo CLI', s['subsecao']),
+        *bloco_codigo([
+            'def main():',
+            '    if len(sys.argv) < 2:',
+            '        iniciar_gui()   # sem argumentos → abre a janela',
+            '        return',
+            '    # com argumentos → comportamento CLI original inalterado',
+        ], s),
+        Paragraph(
+            'A GUI é uma camada adicionada <b>sobre</b> a lógica existente, não uma '
+            'substituição. Scripts de automação, agendamentos via Task Scheduler e outros '
+            'usos programáticos continuam funcionando sem nenhuma alteração.',
+            s['corpo'],
+        ),
+
+        # ── TABELA RESUMO ──
+        Spacer(1, 0.4 * cm),
+        Paragraph('Resumo dos componentes', s['subsecao']),
+        tabela,
+    ]
+
+
+def secao_futuro(s: dict) -> list:
+    return [
+        *divisor(),
+        Paragraph('8. PRÓXIMOS PASSOS PREVISTOS', s['secao']),
+        Paragraph(
+            'O programa já conta com interface gráfica. As melhorias abaixo são sugestões '
+            'para evoluções futuras.',
+            s['corpo'],
         ),
         Paragraph(
             '• <b>Pré-visualização:</b> mostrar os recibos na tela antes de salvar o PDF.',
@@ -564,6 +804,7 @@ def gerar_documentacao():
     story += secao_layout(s)
     story += secao_uso(s)
     story += secao_estrutura_planilha(s)
+    story += secao_gui(s)
     story += secao_futuro(s)
     story += divisor()
     story.append(Spacer(1, 0.5 * cm))

@@ -6,6 +6,9 @@ Uso: python gerar_recibos.py <arquivo.xlsx> [saida.pdf]
 
 import os
 import sys
+import threading
+import tkinter as tk
+from tkinter import filedialog, messagebox, ttk
 from datetime import datetime
 
 import pandas as pd
@@ -161,21 +164,120 @@ def gerar_pdf(arquivo_xlsx: str, arquivo_pdf: str) -> None:
     print(f'PDF gerado: {arquivo_pdf} ({len(funcionarios)} recibos)')
 
 
+def iniciar_gui():
+    root = tk.Tk()
+    root.title('Gerador de Recibos')
+    root.resizable(False, False)
+
+    padding = {'padx': 10, 'pady': 5}
+
+    # --- Planilha ---
+    tk.Label(root, text='Planilha (.xlsx):').grid(row=0, column=0, sticky='w', **padding)
+
+    var_xlsx = tk.StringVar()
+    entry_xlsx = tk.Entry(root, textvariable=var_xlsx, width=50)
+    entry_xlsx.grid(row=0, column=1, **padding)
+
+    def selecionar_xlsx():
+        caminho = filedialog.askopenfilename(
+            title='Selecionar planilha',
+            filetypes=[('Excel', '*.xlsx *.xls'), ('Todos', '*.*')],
+        )
+        if caminho:
+            var_xlsx.set(caminho)
+            if not var_pdf.get():
+                var_pdf.set(os.path.splitext(caminho)[0] + '_recibos.pdf')
+
+    tk.Button(root, text='Procurar...', command=selecionar_xlsx).grid(row=0, column=2, **padding)
+
+    # --- PDF de saída ---
+    tk.Label(root, text='PDF de saída:').grid(row=1, column=0, sticky='w', **padding)
+
+    var_pdf = tk.StringVar()
+    entry_pdf = tk.Entry(root, textvariable=var_pdf, width=50)
+    entry_pdf.grid(row=1, column=1, **padding)
+
+    def selecionar_pdf():
+        caminho = filedialog.asksaveasfilename(
+            title='Salvar PDF como',
+            defaultextension='.pdf',
+            filetypes=[('PDF', '*.pdf')],
+        )
+        if caminho:
+            var_pdf.set(caminho)
+
+    tk.Button(root, text='Salvar como...', command=selecionar_pdf).grid(row=1, column=2, **padding)
+
+    # --- Barra de progresso e status ---
+    progress = ttk.Progressbar(root, mode='indeterminate', length=400)
+    progress.grid(row=2, column=0, columnspan=3, padx=10, pady=(10, 0))
+
+    var_status = tk.StringVar(value='Aguardando...')
+    tk.Label(root, textvariable=var_status, fg='gray').grid(
+        row=3, column=0, columnspan=3, pady=(2, 5)
+    )
+
+    # --- Botão gerar ---
+    btn_gerar = tk.Button(root, text='Gerar Recibos', width=20, bg='#2e7d32', fg='white',
+                          font=('Helvetica', 10, 'bold'))
+    btn_gerar.grid(row=4, column=0, columnspan=3, pady=(5, 15))
+
+    def executar():
+        xlsx = var_xlsx.get().strip()
+        pdf = var_pdf.get().strip()
+
+        if not xlsx:
+            messagebox.showerror('Erro', 'Selecione a planilha (.xlsx).')
+            return
+        if not os.path.exists(xlsx):
+            messagebox.showerror('Erro', f'Arquivo não encontrado:\n{xlsx}')
+            return
+        if not pdf:
+            pdf = os.path.splitext(xlsx)[0] + '_recibos.pdf'
+            var_pdf.set(pdf)
+
+        btn_gerar.config(state='disabled')
+        progress.start(10)
+        var_status.set('Gerando PDF...')
+
+        def tarefa():
+            try:
+                gerar_pdf(xlsx, pdf)
+                root.after(0, lambda: concluido(pdf))
+            except Exception as exc:
+                root.after(0, lambda: erro(str(exc)))
+
+        threading.Thread(target=tarefa, daemon=True).start()
+
+    def concluido(pdf):
+        progress.stop()
+        btn_gerar.config(state='normal')
+        var_status.set('PDF gerado com sucesso!')
+        if messagebox.askyesno('Concluído', f'PDF gerado:\n{pdf}\n\nDeseja abrir o arquivo?'):
+            os.startfile(pdf)
+
+    def erro(msg):
+        progress.stop()
+        btn_gerar.config(state='normal')
+        var_status.set('Erro ao gerar PDF.')
+        messagebox.showerror('Erro', msg)
+
+    btn_gerar.config(command=executar)
+
+    root.mainloop()
+
+
 def main():
     if len(sys.argv) < 2:
-        print('Uso: python gerar_recibos.py <arquivo.xlsx> [saida.pdf]')
-        sys.exit(1)
+        iniciar_gui()
+        return
 
     arquivo_xlsx = sys.argv[1]
     if not os.path.exists(arquivo_xlsx):
         print(f'Arquivo não encontrado: {arquivo_xlsx}')
         sys.exit(1)
 
-    if len(sys.argv) >= 3:
-        arquivo_pdf = sys.argv[2]
-    else:
-        arquivo_pdf = os.path.splitext(arquivo_xlsx)[0] + '_recibos.pdf'
-
+    arquivo_pdf = sys.argv[2] if len(sys.argv) >= 3 else os.path.splitext(arquivo_xlsx)[0] + '_recibos.pdf'
     gerar_pdf(arquivo_xlsx, arquivo_pdf)
 
 
