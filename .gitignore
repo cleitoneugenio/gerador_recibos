@@ -18,3 +18,4 @@ documentacao_gerar_recibos.pdf
 build/
 dist/
 *.spec
+recibo.ico
