@@ -1005,6 +1005,103 @@ def secao_executavel(s: dict) -> list:
             'seria necessário gerar o executável nesses sistemas operacionais separadamente.',
             s['corpo'],
         ),
+
+        # ── PASSO 9 ──
+        Paragraph('Passo 9 — Ícone na barra de tarefas do Windows', s['subsecao']),
+        Paragraph(
+            'Após gerar o executável com <i>--icon</i>, o ícone aparece corretamente no '
+            'Explorer e na Área de Trabalho, mas a barra de tarefas continuava exibindo '
+            'o ícone genérico da pena do Tk. Isso acontece porque existem <b>dois ícones '
+            'independentes</b> no Windows:',
+            s['corpo'],
+        ),
+        Paragraph(
+            '• <b>Ícone do arquivo .exe</b> — definido pela flag <i>--icon</i> do PyInstaller. '
+            'Aparece no Explorer, Área de Trabalho e Iniciar. É estático, embutido no '
+            'cabeçalho PE do executável.',
+            s['topico'],
+        ),
+        Paragraph(
+            '• <b>Ícone da janela em execução</b> — controlado pelo tkinter via '
+            '<i>root.iconbitmap()</i>. É o que aparece na barra de tarefas e no canto '
+            'superior esquerdo da janela enquanto o programa está aberto.',
+            s['topico'],
+        ),
+        Paragraph(
+            'Para corrigir, foram necessárias três mudanças:',
+            s['corpo'],
+        ),
+        Paragraph('<b>1. Função resource_path()</b>', s['subsecao']),
+        Paragraph(
+            'Dentro de um executável gerado pelo PyInstaller (<i>--onefile</i>), os arquivos '
+            'empacotados não ficam na pasta do .exe — são extraídos para uma pasta temporária '
+            'em <i>C:\\Users\\...\\AppData\\Local\\Temp\\_MEIxxxxxx\\</i> cujo caminho fica em '
+            '<i>sys._MEIPASS</i>. Ao rodar como script normal, esse atributo não existe.',
+            s['corpo'],
+        ),
+        *bloco_codigo([
+            'def resource_path(filename: str) -> str:',
+            '    """Caminho correto para recursos no .exe (PyInstaller) ou no script."""',
+            '    base = getattr(sys, "_MEIPASS",',
+            '                   os.path.dirname(os.path.abspath(__file__)))',
+            '    return os.path.join(base, filename)',
+        ], s),
+        Paragraph(
+            '<b>getattr(sys, "_MEIPASS", fallback):</b> Se o atributo não existir '
+            '(execução como script), retorna o fallback — a pasta onde o .py está. '
+            'Isso torna o código compatível com os dois modos sem if/else explícito.',
+            s['corpo'],
+        ),
+        Paragraph('<b>2. root.iconbitmap() na inicialização da janela</b>', s['subsecao']),
+        *bloco_codigo([
+            'def iniciar_gui():',
+            '    root = tk.Tk()',
+            '    root.title("Gerador de Recibos")',
+            '    root.resizable(False, False)',
+            '',
+            '    ico = resource_path("recibo.ico")',
+            '    if os.path.exists(ico):',
+            '        root.iconbitmap(ico)',
+        ], s),
+        Paragraph(
+            '<b>Por que iconbitmap e não iconphoto?</b> No Windows, <i>iconbitmap()</i> com '
+            'arquivo <i>.ico</i> é a forma mais confiável de definir o ícone da barra de '
+            'tarefas. O <i>iconphoto()</i> aceita PNG mas pode apresentar inconsistências '
+            'de renderização dependendo da versão do Windows e do Tcl/Tk.',
+            s['corpo'],
+        ),
+        Paragraph(
+            '<b>Por que o if os.path.exists()?</b> Garante que, se o arquivo não for '
+            'encontrado por qualquer motivo, o programa continua funcionando normalmente '
+            'em vez de lançar uma exceção na inicialização.',
+            s['corpo'],
+        ),
+        Paragraph('<b>3. --add-data no comando do PyInstaller</b>', s['subsecao']),
+        Paragraph(
+            'Sem esta flag, o <i>recibo.ico</i> não seria empacotado dentro do .exe e '
+            '<i>resource_path()</i> nunca encontraria o arquivo em <i>sys._MEIPASS</i>:',
+            s['corpo'],
+        ),
+        *bloco_codigo([
+            'python -m PyInstaller --onefile --windowed \\',
+            '    --name "GeradorRecibos" \\',
+            '    --icon "recibo.ico" \\',
+            '    --add-data "recibo.ico;." \\',
+            '    gerar_recibos.py',
+        ], s),
+        Paragraph(
+            'O formato <i>"recibo.ico;."</i> significa: inclua o arquivo <i>recibo.ico</i> '
+            'e extraia-o na raiz (<i>.</i>) da pasta temporária <i>_MEIPASS</i>. '
+            'O separador é <b>ponto-e-vírgula</b> no Windows (no Linux/macOS seria dois-pontos).',
+            s['corpo'],
+        ),
+        Paragraph(
+            '<b>Nota sobre cache de ícones do Windows:</b> Se após atualizar o .exe o ícone '
+            'antigo ainda aparecer na barra de tarefas, é o cache de ícones do Windows. '
+            'Solução: clique com o botão direito no ícone antigo na barra → '
+            '<i>Desafixar da barra de tarefas</i> → abra o novo .exe novamente.',
+            s['corpo'],
+        ),
     ]
 
 
@@ -1013,14 +1110,9 @@ def secao_futuro(s: dict) -> list:
         *divisor(),
         Paragraph('9. PRÓXIMOS PASSOS PREVISTOS', s['secao']),
         Paragraph(
-            'O programa já conta com interface gráfica e executável Windows. '
+            'O programa já conta com interface gráfica, ícone personalizado e executável Windows. '
             'As melhorias abaixo são sugestões para evoluções futuras.',
             s['corpo'],
-        ),
-        Paragraph(
-            '• <b>Ícone personalizado:</b> adicionar um ícone .ico ao executável usando '
-            'a flag --icon do PyInstaller.',
-            s['topico'],
         ),
         Paragraph(
             '• <b>Pré-visualização:</b> mostrar os recibos na tela antes de salvar o PDF.',
