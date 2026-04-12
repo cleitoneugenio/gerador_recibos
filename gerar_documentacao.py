@@ -66,16 +66,15 @@ def criar_estilos() -> dict:
             leading=16,
             spaceAfter=6,
         ),
-        'codigo': ParagraphStyle(
-            'codigo',
+        # Texto dentro do bloco de código escuro
+        'codigo_dark': ParagraphStyle(
+            'codigo_dark',
             fontName='Courier',
             fontSize=9,
-            leading=14,
-            backColor=colors.HexColor('#f4f4f4'),
-            leftIndent=12,
-            rightIndent=12,
-            spaceBefore=4,
-            spaceAfter=4,
+            leading=15,
+            textColor=colors.HexColor('#d4d4d4'),
+            spaceBefore=0,
+            spaceAfter=0,
         ),
         'topico': ParagraphStyle(
             'topico',
@@ -92,7 +91,31 @@ def criar_estilos() -> dict:
             alignment=TA_CENTER,
             textColor=colors.grey,
         ),
+        # Estilos para células de tabela (necessário para quebra automática de linha)
+        'celula': ParagraphStyle(
+            'celula',
+            fontName='Helvetica',
+            fontSize=8,
+            leading=12,
+            spaceAfter=0,
+            spaceBefore=0,
+        ),
+        'celula_h': ParagraphStyle(
+            'celula_h',
+            fontName='Helvetica-Bold',
+            fontSize=8,
+            leading=12,
+            textColor=colors.white,
+            spaceAfter=0,
+            spaceBefore=0,
+        ),
     }
+
+
+# ---------------------------------------------------------------------------
+# Constante de largura útil: A4 (21cm) - 2 * 2.2cm de margem
+# ---------------------------------------------------------------------------
+LARGURA_UTIL = 16.6 * cm
 
 
 # ---------------------------------------------------------------------------
@@ -107,11 +130,52 @@ def divisor(cor=colors.HexColor('#cccccc')) -> list:
     ]
 
 
+def _prep_linha(linha: str) -> str:
+    """Escapa HTML e converte espaços iniciais em &nbsp; para preservar indentação."""
+    if not linha.strip():
+        return '&nbsp;'
+    linha_esc = linha.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
+    n = len(linha_esc) - len(linha_esc.lstrip(' '))
+    return '&nbsp;' * n + linha_esc.lstrip(' ')
+
+
 def bloco_codigo(linhas: list, s: dict) -> list:
-    elementos = []
-    for linha in linhas:
-        elementos.append(Paragraph(linha, s['codigo']))
-    return elementos
+    """Bloco de código com fundo escuro (#1e1e1e) e texto claro (#d4d4d4)."""
+    html = '<br/>'.join(_prep_linha(l) for l in linhas)
+    tabela = Table(
+        [[Paragraph(html, s['codigo_dark'])]],
+        colWidths=[LARGURA_UTIL],
+    )
+    tabela.setStyle(TableStyle([
+        ('BACKGROUND',    (0, 0), (-1, -1), colors.HexColor('#1e1e1e')),
+        ('TOPPADDING',    (0, 0), (-1, -1), 10),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 10),
+        ('LEFTPADDING',   (0, 0), (-1, -1), 14),
+        ('RIGHTPADDING',  (0, 0), (-1, -1), 14),
+        ('BOX',           (0, 0), (-1, -1), 1, colors.HexColor('#555555')),
+    ]))
+    return [Spacer(1, 0.2 * cm), tabela, Spacer(1, 0.2 * cm)]
+
+
+def mk_tabela(dados_raw: list, col_widths: list, cor_header, s: dict) -> Table:
+    """Cria tabela com Paragraph em todas as células para quebra automática de texto."""
+    dados = []
+    for i, linha in enumerate(dados_raw):
+        estilo = s['celula_h'] if i == 0 else s['celula']
+        dados.append([Paragraph(str(cel), estilo) for cel in linha])
+    tabela = Table(dados, colWidths=col_widths, repeatRows=1)
+    tabela.setStyle(TableStyle([
+        ('BACKGROUND',     (0, 0), (-1, 0),  cor_header),
+        ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#f0f4f8')]),
+        ('GRID',           (0, 0), (-1, -1), 0.4, colors.HexColor('#cccccc')),
+        ('BOX',            (0, 0), (-1, -1), 0.8, colors.HexColor('#999999')),
+        ('VALIGN',         (0, 0), (-1, -1), 'TOP'),
+        ('TOPPADDING',     (0, 0), (-1, -1), 6),
+        ('BOTTOMPADDING',  (0, 0), (-1, -1), 6),
+        ('LEFTPADDING',    (0, 0), (-1, -1), 7),
+        ('RIGHTPADDING',   (0, 0), (-1, -1), 7),
+    ]))
+    return tabela
 
 
 # ---------------------------------------------------------------------------
@@ -178,27 +242,12 @@ def secao_bibliotecas(s: dict) -> list:
         ['datetime', 'Obter a data atual do sistema', 'Módulo nativo do Python; fornece a data de geração do recibo automaticamente'],
     ]
 
-    tabela = Table(
+    tabela = mk_tabela(
         dados_tabela,
-        colWidths=[3.2 * cm, 4.5 * cm, 8.8 * cm],
-        repeatRows=1,
+        [3.2 * cm, 4.5 * cm, 8.9 * cm],
+        colors.HexColor('#1a1a2e'),
+        s,
     )
-    tabela.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1a1a2e')),
-        ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
-        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-        ('FONTSIZE', (0, 0), (-1, 0), 9),
-        ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
-        ('FONTSIZE', (0, 1), (-1, -1), 8),
-        ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#f0f4f8')]),
-        ('GRID', (0, 0), (-1, -1), 0.4, colors.HexColor('#cccccc')),
-        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-        ('TOPPADDING', (0, 0), (-1, -1), 5),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
-        ('LEFTPADDING', (0, 0), (-1, -1), 6),
-        ('RIGHTPADDING', (0, 0), (-1, -1), 6),
-        ('WORDWRAP', (0, 0), (-1, -1), True),
-    ]))
 
     return [
         *divisor(),
@@ -467,25 +516,12 @@ def secao_estrutura_planilha(s: dict) -> list:
         ['TOTAL', '10', 'Total a receber. É este valor que aparece no recibo.'],
     ]
 
-    tabela = Table(
+    tabela = mk_tabela(
         dados_tabela,
-        colWidths=[2.8 * cm, 1.8 * cm, 12 * cm],
-        repeatRows=1,
+        [2.8 * cm, 1.8 * cm, 12.0 * cm],
+        colors.HexColor('#2e4057'),
+        s,
     )
-    tabela.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#2e4057')),
-        ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
-        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-        ('FONTSIZE', (0, 0), (-1, -1), 8),
-        ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
-        ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#f0f4f8')]),
-        ('GRID', (0, 0), (-1, -1), 0.4, colors.HexColor('#cccccc')),
-        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-        ('TOPPADDING', (0, 0), (-1, -1), 5),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
-        ('LEFTPADDING', (0, 0), (-1, -1), 6),
-        ('RIGHTPADDING', (0, 0), (-1, -1), 6),
-    ]))
 
     return [
         *divisor(),
@@ -517,25 +553,12 @@ def secao_gui(s: dict) -> list:
         ['Diálogo de conclusão', 'messagebox.askyesno', 'Pergunta se o usuário quer abrir o PDF. Não abre automaticamente para não interromper quem gera vários arquivos.'],
     ]
 
-    tabela = Table(
+    tabela = mk_tabela(
         dados_componentes,
-        colWidths=[3.5 * cm, 3.5 * cm, 9.5 * cm],
-        repeatRows=1,
+        [3.5 * cm, 3.5 * cm, 9.6 * cm],
+        colors.HexColor('#2e7d32'),
+        s,
     )
-    tabela.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#2e7d32')),
-        ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
-        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-        ('FONTSIZE', (0, 0), (-1, -1), 8),
-        ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
-        ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#f0f4f8')]),
-        ('GRID', (0, 0), (-1, -1), 0.4, colors.HexColor('#cccccc')),
-        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-        ('TOPPADDING', (0, 0), (-1, -1), 5),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
-        ('LEFTPADDING', (0, 0), (-1, -1), 6),
-        ('RIGHTPADDING', (0, 0), (-1, -1), 6),
-    ]))
 
     return [
         *divisor(),
@@ -758,25 +781,12 @@ def secao_executavel(s: dict) -> list:
         ['--name "GeradorRecibos"', 'Define o nome do executável gerado', 'Sem esta flag o nome seria gerar_recibos.exe (nome do script). O nome amigável fica mais claro para o usuário final.'],
     ]
 
-    tabela_flags = Table(
+    tabela_flags = mk_tabela(
         dados_flags,
-        colWidths=[3.8 * cm, 4.2 * cm, 8.5 * cm],
-        repeatRows=1,
+        [3.8 * cm, 4.2 * cm, 8.6 * cm],
+        colors.HexColor('#1a237e'),
+        s,
     )
-    tabela_flags.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1a237e')),
-        ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
-        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-        ('FONTSIZE', (0, 0), (-1, -1), 8),
-        ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
-        ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#f0f4f8')]),
-        ('GRID', (0, 0), (-1, -1), 0.4, colors.HexColor('#cccccc')),
-        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-        ('TOPPADDING', (0, 0), (-1, -1), 5),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
-        ('LEFTPADDING', (0, 0), (-1, -1), 6),
-        ('RIGHTPADDING', (0, 0), (-1, -1), 6),
-    ]))
 
     dados_ferramentas = [
         ['Ferramenta', 'Abordagem', 'Veredicto'],
@@ -786,25 +796,12 @@ def secao_executavel(s: dict) -> list:
         ['py2exe', 'Clássico empacotador Windows', '✘ Abandonado para Python 3.9+; sem suporte ao Python 3.14 usado no projeto.'],
     ]
 
-    tabela_ferramentas = Table(
+    tabela_ferramentas = mk_tabela(
         dados_ferramentas,
-        colWidths=[2.8 * cm, 5.5 * cm, 8.2 * cm],
-        repeatRows=1,
+        [2.8 * cm, 5.5 * cm, 8.3 * cm],
+        colors.HexColor('#37474f'),
+        s,
     )
-    tabela_ferramentas.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#37474f')),
-        ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
-        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-        ('FONTSIZE', (0, 0), (-1, -1), 8),
-        ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
-        ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#f0f4f8')]),
-        ('GRID', (0, 0), (-1, -1), 0.4, colors.HexColor('#cccccc')),
-        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-        ('TOPPADDING', (0, 0), (-1, -1), 5),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
-        ('LEFTPADDING', (0, 0), (-1, -1), 6),
-        ('RIGHTPADDING', (0, 0), (-1, -1), 6),
-    ]))
 
     return [
         *divisor(),
