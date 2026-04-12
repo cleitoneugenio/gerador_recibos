@@ -4,6 +4,8 @@ Gera a documentação do projeto gerar_recibos.py em PDF.
 Uso: python gerar_documentacao.py
 """
 
+import re
+
 from reportlab.lib import colors
 from reportlab.lib.enums import TA_CENTER, TA_JUSTIFY, TA_LEFT
 from reportlab.lib.pagesizes import A4
@@ -17,6 +19,98 @@ from reportlab.platypus import (
     Table,
     TableStyle,
 )
+
+# ---------------------------------------------------------------------------
+# Dracula Theme — cores exatas do tema usado no VS Code
+# ---------------------------------------------------------------------------
+_BG        = '#282a36'   # fundo
+_FG        = '#f8f8f2'   # texto padrão
+_COMMENT   = '#6272a4'   # comentários
+_KEYWORD   = '#ff79c6'   # palavras-chave (pink)
+_BUILTIN   = '#8be9fd'   # built-ins / tipos (cyan)
+_STRING    = '#f1fa8c'   # strings (yellow)
+_NUMBER    = '#bd93f9'   # números (purple)
+_FUNCTION  = '#50fa7b'   # nome de função/classe após def/class (green)
+_OPERATOR  = '#ff79c6'   # operadores
+
+_PY_KEYWORDS = frozenset({
+    'False', 'None', 'True', 'and', 'as', 'assert', 'async', 'await',
+    'break', 'class', 'continue', 'def', 'del', 'elif', 'else', 'except',
+    'finally', 'for', 'from', 'global', 'if', 'import', 'in', 'is',
+    'lambda', 'nonlocal', 'not', 'or', 'pass', 'raise', 'return', 'try',
+    'while', 'with', 'yield',
+})
+
+_PY_BUILTINS = frozenset({
+    'int', 'str', 'float', 'list', 'dict', 'tuple', 'set', 'bool',
+    'len', 'range', 'print', 'type', 'isinstance', 'hasattr', 'getattr',
+    'open', 'super', 'object', 'Exception', 'ValueError', 'TypeError',
+    'round', 'abs', 'min', 'max', 'enumerate', 'zip', 'sorted',
+})
+
+# Tokenizer: comentário > string > número > palavra > resto
+_TOKEN_RE = re.compile(
+    r'(?P<comment>#[^\n]*)'
+    r"|(?P<string>[fFrRbB]{0,2}(?:'(?:[^'\\]|\\.)*'|\"(?:[^\"\\]|\\.)*\"))"
+    r'|(?P<number>\b\d+\.?\d*\b)'
+    r'|(?P<word>[A-Za-z_]\w*)'
+    r'|(?P<other>[^\w\s\'\"#]+|[ \t]+)'
+)
+
+
+def _xml_esc(s: str) -> str:
+    return s.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
+
+
+def _colorir_linha(linha: str) -> str:
+    """Tokeniza e aplica cores do Dracula Theme a uma linha de código."""
+    if not linha.strip():
+        return '&nbsp;'
+
+    n = len(linha) - len(linha.lstrip(' '))
+    indent = '&nbsp;' * n
+    texto = linha.lstrip(' ')
+
+    parts = []
+    after_def = False   # True após 'def' ou 'class' → próxima palavra fica verde
+
+    for m in _TOKEN_RE.finditer(texto):
+        kind = m.lastgroup
+        val  = m.group()
+        esc  = _xml_esc(val)
+
+        if kind == 'comment':
+            parts.append(f'<font color="{_COMMENT}">{esc}</font>')
+            after_def = False
+
+        elif kind == 'string':
+            parts.append(f'<font color="{_STRING}">{esc}</font>')
+            after_def = False
+
+        elif kind == 'number':
+            parts.append(f'<font color="{_NUMBER}">{esc}</font>')
+            after_def = False
+
+        elif kind == 'word':
+            if after_def:
+                parts.append(f'<font color="{_FUNCTION}">{esc}</font>')
+                after_def = False
+            elif val in _PY_KEYWORDS:
+                parts.append(f'<font color="{_KEYWORD}">{esc}</font>')
+                after_def = val in ('def', 'class')
+            elif val in _PY_BUILTINS:
+                parts.append(f'<font color="{_BUILTIN}">{esc}</font>')
+                after_def = False
+            else:
+                parts.append(f'<font color="{_FG}">{esc}</font>')
+                after_def = False
+
+        else:  # whitespace ou operadores
+            parts.append(esc)
+            if val.strip():   # operador (não espaço) → reseta after_def
+                after_def = False
+
+    return indent + ''.join(parts)
 
 
 # ---------------------------------------------------------------------------
@@ -66,13 +160,13 @@ def criar_estilos() -> dict:
             leading=16,
             spaceAfter=6,
         ),
-        # Texto dentro do bloco de código escuro
+        # Texto dentro do bloco de código — Dracula Theme
         'codigo_dark': ParagraphStyle(
             'codigo_dark',
             fontName='Courier',
             fontSize=9,
             leading=15,
-            textColor=colors.HexColor('#d4d4d4'),
+            textColor=colors.HexColor(_FG),
             spaceBefore=0,
             spaceAfter=0,
         ),
@@ -130,29 +224,20 @@ def divisor(cor=colors.HexColor('#cccccc')) -> list:
     ]
 
 
-def _prep_linha(linha: str) -> str:
-    """Escapa HTML e converte espaços iniciais em &nbsp; para preservar indentação."""
-    if not linha.strip():
-        return '&nbsp;'
-    linha_esc = linha.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
-    n = len(linha_esc) - len(linha_esc.lstrip(' '))
-    return '&nbsp;' * n + linha_esc.lstrip(' ')
-
-
 def bloco_codigo(linhas: list, s: dict) -> list:
-    """Bloco de código com fundo escuro (#1e1e1e) e texto claro (#d4d4d4)."""
-    html = '<br/>'.join(_prep_linha(l) for l in linhas)
+    """Bloco de código com Dracula Theme: fundo #282a36, syntax highlighting completo."""
+    html = '<br/>'.join(_colorir_linha(l) for l in linhas)
     tabela = Table(
         [[Paragraph(html, s['codigo_dark'])]],
         colWidths=[LARGURA_UTIL],
     )
     tabela.setStyle(TableStyle([
-        ('BACKGROUND',    (0, 0), (-1, -1), colors.HexColor('#1e1e1e')),
+        ('BACKGROUND',    (0, 0), (-1, -1), colors.HexColor(_BG)),
         ('TOPPADDING',    (0, 0), (-1, -1), 10),
         ('BOTTOMPADDING', (0, 0), (-1, -1), 10),
         ('LEFTPADDING',   (0, 0), (-1, -1), 14),
         ('RIGHTPADDING',  (0, 0), (-1, -1), 14),
-        ('BOX',           (0, 0), (-1, -1), 1, colors.HexColor('#555555')),
+        ('BOX',           (0, 0), (-1, -1), 1, colors.HexColor('#44475a')),
     ]))
     return [Spacer(1, 0.2 * cm), tabela, Spacer(1, 0.2 * cm)]
 
