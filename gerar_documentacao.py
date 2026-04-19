@@ -4,8 +4,10 @@ Gera a documentação do projeto gerar_recibos.py em PDF.
 Uso: python gerar_documentacao.py
 """
 
+import os
 import re
 
+from PIL import Image as PILImage
 from reportlab.lib import colors
 from reportlab.lib.enums import TA_CENTER, TA_JUSTIFY, TA_LEFT
 from reportlab.lib.pagesizes import A4
@@ -13,12 +15,15 @@ from reportlab.lib.styles import ParagraphStyle
 from reportlab.lib.units import cm
 from reportlab.platypus import (
     HRFlowable,
+    Image,
     Paragraph,
     SimpleDocTemplate,
     Spacer,
     Table,
     TableStyle,
 )
+
+_DIR = os.path.dirname(os.path.abspath(__file__))
 
 # ---------------------------------------------------------------------------
 # Dracula Theme — cores exatas do tema usado no VS Code
@@ -242,6 +247,31 @@ def bloco_codigo(linhas: list, s: dict) -> list:
     return [Spacer(1, 0.2 * cm), tabela, Spacer(1, 0.2 * cm)]
 
 
+def imagem_proporcional(nome_arquivo: str, largura: float, s: dict, legenda: str = '') -> list:
+    """Insere imagem mantendo proporção original. Retorna lista de flowables."""
+    caminho = os.path.join(_DIR, nome_arquivo)
+    pil = PILImage.open(caminho)
+    w, h = pil.size
+    altura = largura * (h / w)
+    elementos = [
+        Spacer(1, 0.3 * cm),
+        Image(caminho, width=largura, height=altura),
+    ]
+    if legenda:
+        estilo = ParagraphStyle(
+            'legenda',
+            fontName='Helvetica',
+            fontSize=8,
+            textColor=colors.HexColor('#666666'),
+            alignment=TA_CENTER,
+            spaceBefore=4,
+            spaceAfter=6,
+        )
+        elementos.append(Paragraph(legenda, estilo))
+    elementos.append(Spacer(1, 0.3 * cm))
+    return elementos
+
+
 def mk_tabela(dados_raw: list, col_widths: list, cor_header, s: dict) -> Table:
     """Cria tabela com Paragraph em todas as células para quebra automática de texto."""
     dados = []
@@ -277,7 +307,7 @@ def secao_capa(s: dict) -> list:
         Spacer(1, 0.6 * cm),
         Paragraph('Arquivo: <b>gerar_recibos.py</b>', s['capa_sub']),
         Paragraph('Linguagem: <b>Python 3</b>', s['capa_sub']),
-        Paragraph('Bibliotecas: <b>pandas · ReportLab · num2words</b>', s['capa_sub']),
+        Paragraph('Bibliotecas: <b>customtkinter · pandas · ReportLab · Pillow · num2words</b>', s['capa_sub']),
         Spacer(1, 3 * cm),
         Paragraph(
             'Este documento explica passo a passo como o programa foi construído, '
@@ -318,18 +348,20 @@ def secao_objetivo(s: dict) -> list:
 
 def secao_bibliotecas(s: dict) -> list:
     dados_tabela = [
-        ['Biblioteca', 'Para que serve', 'Por que foi escolhida'],
-        ['pandas', 'Ler e processar o arquivo .xlsx', 'Biblioteca padrão para dados em Python; lida com Excel de forma simples e robusta'],
-        ['openpyxl', 'Motor de leitura de arquivos .xlsx', 'Exigida pelo pandas para abrir arquivos Excel modernos'],
-        ['ReportLab', 'Gerar o arquivo PDF', 'Biblioteca profissional para criação de PDFs em Python; permite controle total do layout'],
-        ['num2words', 'Converter número em texto por extenso', 'Suporte nativo ao português brasileiro (pt_BR); preciso e fácil de usar'],
-        ['os / sys', 'Lidar com arquivos e argumentos da linha de comando', 'Módulos nativos do Python; sem instalação extra'],
-        ['datetime', 'Obter a data atual do sistema', 'Módulo nativo do Python; fornece a data de geração do recibo automaticamente'],
+        ['Biblioteca', 'Versão', 'Para que serve', 'Por que foi escolhida'],
+        ['customtkinter', '5.2.2', 'Interface gráfica moderna (dark mode)', 'Wrapper sobre tkinter com widgets modernos, dark/light theme, sem dependência de sistema'],
+        ['pandas', '3.0.2', 'Ler e processar o arquivo .xlsx', 'Biblioteca padrão para dados em Python; lida com Excel de forma simples e robusta'],
+        ['openpyxl', '—', 'Motor de leitura de arquivos .xlsx', 'Exigida pelo pandas para abrir arquivos Excel modernos; instalada automaticamente'],
+        ['Pillow', '12.2.0', 'Renderizar a prévia do recibo como imagem', 'Biblioteca de imagem mais completa do ecossistema Python; suporte a fontes TrueType'],
+        ['ReportLab', '4.4.10', 'Gerar o arquivo PDF', 'Biblioteca profissional para criação de PDFs em Python; permite controle total do layout'],
+        ['num2words', '0.5.14', 'Converter número em texto por extenso', 'Suporte nativo ao português brasileiro (pt_BR); preciso e fácil de usar'],
+        ['os / sys / threading / logging', '—', 'Arquivos, threads, argumentos CLI e log', 'Módulos nativos do Python; sem instalação extra'],
+        ['datetime', '—', 'Obter a data atual do sistema', 'Módulo nativo do Python; fornece a data de geração do recibo automaticamente'],
     ]
 
     tabela = mk_tabela(
         dados_tabela,
-        [3.2 * cm, 4.5 * cm, 8.9 * cm],
+        [2.8 * cm, 1.5 * cm, 4.0 * cm, 8.3 * cm],
         colors.HexColor('#1a1a2e'),
         s,
     )
@@ -338,12 +370,16 @@ def secao_bibliotecas(s: dict) -> list:
         *divisor(),
         Paragraph('2. BIBLIOTECAS UTILIZADAS', s['secao']),
         Paragraph(
-            'Antes de rodar o programa pela primeira vez, é necessário instalar as '
-            'bibliotecas externas com o comando abaixo no terminal:',
+            'As versões exatas estão fixadas em <b>requirements.txt</b>. Para instalar:',
             s['corpo'],
         ),
         *bloco_codigo(
-            ['pip install pandas openpyxl reportlab num2words'],
+            ['pip install -r requirements.txt'],
+            s,
+        ),
+        Paragraph('Ou manualmente:', s['corpo']),
+        *bloco_codigo(
+            ['pip install customtkinter==5.2.2 num2words==0.5.14 pandas==3.0.2 Pillow==12.2.0 reportlab==4.4.10'],
             s,
         ),
         Spacer(1, 0.4 * cm),
@@ -404,15 +440,16 @@ def secao_estrutura(s: dict) -> list:
             s['corpo'],
         ),
 
-        Paragraph('3.3 — ler_funcionarios(arquivo)', s['subsecao']),
+        Paragraph('3.3 — ler_funcionarios(arquivo, sheet_name)', s['subsecao']),
         Paragraph(
             'Lê o arquivo <b>.xlsx</b> com o pandas e retorna uma lista com nome e total '
-            'de cada funcionário que trabalhou na semana.',
+            'de cada funcionário que trabalhou na semana. O parâmetro <b>sheet_name</b> '
+            'indica qual aba da planilha deve ser lida (padrão: primeira aba).',
             s['corpo'],
         ),
         *bloco_codigo([
-            'def ler_funcionarios(arquivo: str) -> list:',
-            '    df = pd.read_excel(arquivo, header=0)',
+            'def ler_funcionarios(arquivo: str, sheet_name=0) -> list:',
+            '    df = pd.read_excel(arquivo, sheet_name=sheet_name, header=0)',
             '    for _, row in df.iterrows():',
             '        try:',
             '            int(row.iloc[0])   # col 0 = número do funcionário',
@@ -423,6 +460,12 @@ def secao_estrutura(s: dict) -> list:
             '        if total <= 0: continue',
             "        funcionarios.append({'nome': nome, 'total': total})",
         ], s),
+        Paragraph(
+            '<b>Por que sheet_name=0 como padrão?</b> O valor 0 instrui o pandas a ler a '
+            'primeira aba, mantendo compatibilidade com o modo CLI (que não passa aba). '
+            'Quando a GUI seleciona uma aba pelo nome, passa a string correspondente.',
+            s['corpo'],
+        ),
         Paragraph(
             '<b>Por que header=0?</b> A planilha tem uma linha de título no topo '
             '("CONTROLE DE PONTO...") que o pandas usa automaticamente como nome das colunas. '
@@ -475,15 +518,18 @@ def secao_estrutura(s: dict) -> list:
             s['corpo'],
         ),
 
-        Paragraph('3.5 — gerar_pdf(arquivo_xlsx, arquivo_pdf)', s['subsecao']),
+        Paragraph('3.5 — gerar_pdf_de_lista(funcionarios, arquivo_pdf)', s['subsecao']),
         Paragraph(
-            'Função principal: lê os funcionários, monta todos os recibos e constrói o PDF.',
+            'Recebe uma lista de funcionários já carregada (e opcionalmente filtrada pela GUI) '
+            'e constrói o PDF. Essa separação permite que a GUI filtre os funcionários por '
+            'checkboxes antes de chamar a geração, sem duplicar a lógica de montagem do PDF.',
             s['corpo'],
         ),
         *bloco_codigo([
-            'def gerar_pdf(arquivo_xlsx, arquivo_pdf):',
+            'def gerar_pdf_de_lista(funcionarios: list, arquivo_pdf: str) -> None:',
+            '    if not funcionarios:',
+            "        raise ValueError('Nenhum funcionário selecionado.')",
             '    hoje = datetime.today()',
-            '    funcionarios = ler_funcionarios(arquivo_xlsx)',
             '    doc = SimpleDocTemplate(arquivo_pdf, pagesize=A4, ...)',
             '    story = []',
             '    for i, func in enumerate(funcionarios):',
@@ -493,6 +539,13 @@ def secao_estrutura(s: dict) -> list:
             '            story.append(HRFlowable(dash=(6,4)))  # linha tracejada',
             '    doc.build(story)',
         ], s),
+        Paragraph(
+            '<b>Por que separar de gerar_pdf?</b> A função <i>gerar_pdf</i> original '
+            'chama <i>ler_funcionarios</i> internamente — boa para CLI. Mas na GUI '
+            'já carregamos a lista para exibir os checkboxes; passar a lista diretamente '
+            'evita ler o arquivo Excel duas vezes e permite o filtro por seleção.',
+            s['corpo'],
+        ),
         Paragraph(
             '<b>Por que KeepTogether?</b> Sem ele, um recibo poderia ser cortado no meio '
             'entre uma página e outra. O KeepTogether move o bloco inteiro para a página '
@@ -505,7 +558,110 @@ def secao_estrutura(s: dict) -> list:
             s['corpo'],
         ),
 
-        Paragraph('3.6 — main()', s['subsecao']),
+        Paragraph('3.6 — gerar_pdf(arquivo_xlsx, arquivo_pdf)', s['subsecao']),
+        Paragraph(
+            'Mantida para compatibilidade com o modo CLI. Lê os funcionários internamente '
+            'e delega a construção do PDF para <b>gerar_pdf_de_lista</b>.',
+            s['corpo'],
+        ),
+        *bloco_codigo([
+            'def gerar_pdf(arquivo_xlsx, arquivo_pdf):',
+            '    funcionarios = ler_funcionarios(arquivo_xlsx)',
+            '    if not funcionarios:',
+            "        log.warning('Nenhum funcionário encontrado.')",
+            '        sys.exit(1)',
+            '    gerar_pdf_de_lista(funcionarios, arquivo_pdf)',
+        ], s),
+
+        Paragraph('3.7 — gerar_preview_pil(funcionario, width)', s['subsecao']),
+        Paragraph(
+            'Renderiza um recibo individual como imagem PIL — usado exclusivamente '
+            'pelo painel de prévia da GUI. Produz exatamente o mesmo layout do PDF '
+            '(mesmos espaçadores, mesmas proporções, mesma linha de assinatura) '
+            'escalado para a largura do painel.',
+            s['corpo'],
+        ),
+        *bloco_codigo([
+            'def gerar_preview_pil(funcionario: dict, width: int = 420):',
+            '    from PIL import Image, ImageDraw, ImageFont',
+            '    # Escala proporcional à largura de conteúdo do A4 (481.9pt)',
+            '    scale = width / 481.9',
+            '    img  = Image.new("RGB", (width, height_estimado), "#ffffff")',
+            '    draw = ImageDraw.Draw(img)',
+            '    # Renderiza título, corpo, data, linha de assinatura e nome',
+            '    # usando wrap de palavras em pixels (_wrap_px)',
+            '    return img.crop((0, 0, width, y_final))',
+        ], s),
+        Paragraph(
+            '<b>Por que PIL e não ReportLab?</b> O ReportLab gera apenas PDF — '
+            'não tem API para exportar página como imagem. O PIL permite renderizar '
+            'diretamente em bitmap, que o CTkImage do customtkinter exibe na tela.',
+            s['corpo'],
+        ),
+        Paragraph(
+            '<b>Por que rodar em thread?</b> O PIL pode levar 100–300ms por renderização '
+            'dependendo da resolução. Rodar na thread principal travaria a UI. A função '
+            'é chamada de dentro de um <i>threading.Thread</i> com um mecanismo de token '
+            'para descartar renders desatualizados (ver seção de bugs resolvidos).',
+            s['corpo'],
+        ),
+
+        Paragraph('3.8 — resource_path(filename)', s['subsecao']),
+        Paragraph(
+            'Retorna o caminho correto para arquivos de recurso (ícone, logo) tanto '
+            'ao rodar como script quanto dentro do executável PyInstaller.',
+            s['corpo'],
+        ),
+        *bloco_codigo([
+            'def resource_path(filename: str) -> str:',
+            '    base = getattr(sys, "_MEIPASS",',
+            '                   os.path.dirname(os.path.abspath(__file__)))',
+            '    return os.path.join(base, filename)',
+        ], s),
+        Paragraph(
+            'Dentro do <i>.exe</i> gerado pelo PyInstaller (<i>--onefile</i>), os '
+            'recursos são extraídos para <i>sys._MEIPASS</i> em tempo de execução. '
+            'Como script, usa o diretório do próprio arquivo. O <i>getattr</i> com '
+            'fallback elimina qualquer if/else explícito.',
+            s['corpo'],
+        ),
+
+        Paragraph('3.9 — setup_logging()', s['subsecao']),
+        Paragraph(
+            'Configura o sistema de log persistente em arquivo rotativo. '
+            'Chamada uma única vez no bloco <i>if __name__ == "__main__"</i>.',
+            s['corpo'],
+        ),
+        *bloco_codigo([
+            'def setup_logging() -> str:',
+            '    app_dir = os.path.join(os.environ["APPDATA"], "GeradorRecibos")',
+            '    os.makedirs(app_dir, exist_ok=True)',
+            '    fh = logging.handlers.RotatingFileHandler(',
+            '        log_path, maxBytes=1_048_576, backupCount=3, encoding="utf-8"',
+            '    )',
+            '    # Root logger em WARNING — suprime ruído de bibliotecas externas',
+            '    logging.getLogger().setLevel(logging.WARNING)',
+            '    # Loggers da aplicação em DEBUG',
+            '    for name in ("gerar_recibos", "__main__"):',
+            '        logging.getLogger(name).setLevel(logging.DEBUG)',
+        ], s),
+        Paragraph(
+            '<b>Por que root logger em WARNING?</b> Pandas, Pillow e outras bibliotecas '
+            'emitem mensagens DEBUG/INFO internas sem interesse para diagnóstico do '
+            'programa. Manter o root em WARNING suprime esse ruído; os loggers da '
+            'aplicação em DEBUG capturam tudo que importa.',
+            s['corpo'],
+        ),
+        Paragraph(
+            '<b>Por que configurar tanto "gerar_recibos" quanto "__main__"?</b> '
+            'O objeto <i>log = logging.getLogger(__name__)</i> no topo do arquivo '
+            'recebe o nome <i>"gerar_recibos"</i> quando importado como módulo, '
+            'mas <i>"__main__"</i> quando executado diretamente. Configurar ambos '
+            'garante cobertura nos dois modos.',
+            s['corpo'],
+        ),
+
+        Paragraph('3.10 — main()', s['subsecao']),
         Paragraph(
             'Ponto de entrada do programa. Lê os argumentos passados na linha de comando '
             'e chama a função gerar_pdf.',
@@ -554,28 +710,26 @@ def secao_uso(s: dict) -> list:
         *divisor(),
         Paragraph('5. COMO USAR O PROGRAMA', s['secao']),
 
-        Paragraph('Passo 1 — Instalar as dependências (apenas uma vez)', s['subsecao']),
-        *bloco_codigo(['pip install pandas openpyxl reportlab num2words'], s),
-
-        Paragraph('Passo 2 — Abrir o terminal na pasta do projeto', s['subsecao']),
+        Paragraph('Opção 1 — Interface gráfica (recomendado)', s['subsecao']),
         Paragraph(
-            'No Windows Explorer, navegue até a pasta do projeto, clique na barra de '
-            'endereço, digite <b>cmd</b> e pressione Enter.',
+            'Execute o <b>GeradorRecibos.exe</b> com dois cliques (ou <i>python gerar_recibos.py</i> '
+            'sem argumentos). A janela abre automaticamente.',
             s['corpo'],
         ),
+        Paragraph('1. Clique em <b>⋯</b> ao lado de <b>PLANILHA</b> e selecione o arquivo <b>.xlsx</b>.', s['topico']),
+        Paragraph('2. No campo <b>ABA</b>, selecione a semana desejada (preenchido automaticamente com a primeira aba).', s['topico']),
+        Paragraph('3. No painel <b>FUNCIONÁRIOS</b>, marque ou desmarque quem deve entrar no PDF.', s['topico']),
+        Paragraph('4. O painel <b>PRÉVIA</b> à direita mostra o recibo do funcionário selecionado — navegue com ← →.', s['topico']),
+        Paragraph('5. Clique em <b>Gerar Recibos</b>. Ao concluir, o programa pergunta se deseja abrir o PDF.', s['topico']),
 
-        Paragraph('Passo 3 — Executar o programa', s['subsecao']),
+        Paragraph('Opção 2 — Linha de comando', s['subsecao']),
         Paragraph('<b>Opção A</b> — O PDF é gerado com o mesmo nome da planilha:', s['topico']),
         *bloco_codigo(['python gerar_recibos.py ponto_cedan_semana.xlsx'], s),
         Paragraph('<b>Opção B</b> — Definindo o nome do PDF de saída:', s['topico']),
         *bloco_codigo(['python gerar_recibos.py ponto_cedan_semana.xlsx recibos_semana1.pdf'], s),
 
-        Paragraph('Passo 4 — Verificar o resultado', s['subsecao']),
-        Paragraph(
-            'O PDF é salvo na mesma pasta da planilha. Abra-o, confira os recibos '
-            'e imprima normalmente.',
-            s['corpo'],
-        ),
+        Paragraph('Instalar as dependências (apenas uma vez — modo script)', s['subsecao']),
+        *bloco_codigo(['pip install -r requirements.txt'], s),
 
         Paragraph('Regras automáticas do programa', s['subsecao']),
         Paragraph('• Funcionários com total R$ 0,00 são ignorados (não gera recibo).', s['topico']),
@@ -628,215 +782,137 @@ def secao_estrutura_planilha(s: dict) -> list:
 
 def secao_gui(s: dict) -> list:
     dados_componentes = [
-        ['Componente', 'Widget tkinter', 'Justificativa'],
-        ['Rótulos', 'tk.Label', 'Texto estático para identificar cada campo da tela.'],
-        ['Campos de texto', 'tk.Entry + StringVar', 'Permitem leitura e escrita do caminho do arquivo. StringVar separa modelo da visão.'],
-        ['Botões de arquivo', 'tk.Button + filedialog', 'Abrem o diálogo nativo do Windows — familiar ao usuário, sem necessidade de digitar o caminho.'],
-        ['Barra de progresso', 'ttk.Progressbar', 'Indica que o programa está trabalhando. Modo indeterminate correto pois não há percentual real.'],
-        ['Label de status', 'tk.Label + StringVar', 'Feedback textual contínuo sem interromper o fluxo com caixas de diálogo.'],
-        ['Botão principal', 'tk.Button', 'Cor verde (#2e7d32) destaca a ação principal. Desabilitado durante execução para evitar cliques duplos.'],
-        ['Diálogo de conclusão', 'messagebox.askyesno', 'Pergunta se o usuário quer abrir o PDF. Não abre automaticamente para não interromper quem gera vários arquivos.'],
+        ['Componente', 'Widget customtkinter', 'Justificativa'],
+        ['Janela principal', 'CTk (dark mode)', 'Tema escuro ativo por padrão; paleta da empresa (vermelho #C0391B sobre fundo #0f0f0f).'],
+        ['Campos de texto', 'CTkEntry + tk.StringVar', 'StringVar separa modelo da visão; Entry moderno integrado ao tema dark.'],
+        ['Botões de arquivo', 'CTkButton + filedialog', 'Diálogo nativo do Windows; botão ⋯ discreto ao lado do campo.'],
+        ['Seletor de aba', 'CTkComboBox', 'Lista suspensa com dropdown estilizado no tema dark.'],
+        ['Lista de funcionários', 'CTkScrollableFrame + CTkCheckBox', 'Frame scrollável com checkboxes nativos do customtkinter; todos marcados por padrão.'],
+        ['Painel de prévia', 'CTkScrollableFrame + CTkLabel', 'Exibe a imagem PIL do recibo selecionado; atualiza em background thread.'],
+        ['Navegação de prévia', 'CTkButton ← →', 'Navega entre os recibos selecionados sem regerar o PDF.'],
+        ['Barra de progresso', 'CTkProgressBar (indeterminate)', 'Altura fina (3px), cor do accent — visualmente integrado ao design.'],
+        ['Label de status', 'CTkLabel + tk.StringVar', 'Feedback textual sem caixas de diálogo; cor muda conforme estado (erro/sucesso).'],
+        ['Botão principal', 'CTkButton', 'Fundo vermelho ACCENT; desabilitado durante geração para evitar cliques duplos.'],
+        ['Diálogo de conclusão', 'messagebox.askyesno', 'Pergunta se deseja abrir o PDF — não abre automaticamente.'],
     ]
 
     tabela = mk_tabela(
         dados_componentes,
-        [3.5 * cm, 3.5 * cm, 9.6 * cm],
-        colors.HexColor('#2e7d32'),
+        [3.2 * cm, 3.8 * cm, 9.6 * cm],
+        colors.HexColor('#C0391B'),
         s,
     )
 
     return [
         *divisor(),
-        Paragraph('7. INTERFACE GRÁFICA (GUI) — IMPLEMENTAÇÃO PASSO A PASSO', s['secao']),
+        Paragraph('7. INTERFACE GRÁFICA (GUI) — IMPLEMENTAÇÃO', s['secao']),
         Paragraph(
-            'A interface gráfica foi adicionada ao script para eliminar a necessidade do terminal. '
-            'O comportamento é preservado: sem argumentos → abre a janela; com argumentos → modo '
-            'CLI original. Toda a lógica de geração de PDF permanece inalterada.',
+            'A GUI usa <b>customtkinter</b> — um wrapper moderno sobre tkinter com dark mode nativo, '
+            'widgets redesenhados e sistema de temas. O layout é dividido em dois painéis: '
+            '<b>esquerdo</b> (controles, lista de funcionários) e <b>direito</b> (prévia do recibo). '
+            'O comportamento CLI original é preservado: sem argumentos → abre a janela; '
+            'com argumentos → modo CLI.',
             s['corpo'],
+        ),
+        *imagem_proporcional(
+            'scheenshot_gui.png.png',
+            LARGURA_UTIL,
+            s,
+            'Interface do Gerador de Recibos — painel de controles (esquerda) e prévia do recibo (direita).',
         ),
 
-        # ── PASSO 1 ──
-        Paragraph('Passo 1 — Escolha da biblioteca: tkinter', s['subsecao']),
+        Paragraph('Passo 1 — Escolha da biblioteca: customtkinter sobre tkinter puro', s['subsecao']),
         Paragraph(
-            'Foram avaliadas quatro opções de biblioteca gráfica para Python:',
+            'Foram avaliadas as opções de biblioteca gráfica para Python:',
             s['corpo'],
         ),
         Paragraph(
-            '• <b>tkinter</b> ✔ — já vem embutida no Python; sem instalação; usa controles '
-            'nativos do Windows; estável e bem documentada.',
+            '• <b>customtkinter</b> ✔ — dark mode nativo; baseado em tkinter (sem dependências pesadas); '
+            'widgets modernos; instalação simples via pip.',
             s['topico'],
         ),
         Paragraph(
-            '• <b>PyQt / PySide6</b> ✘ — exige instalação (~60 MB); licença LGPL com '
-            'restrições; complexidade desnecessária para um formulário simples.',
+            '• <b>tkinter puro</b> — visual datado; sem dark mode; checkboxes e scrollbars feias no Windows 11.',
             s['topico'],
         ),
         Paragraph(
-            '• <b>wxPython</b> ✘ — instalação adicional; menos popular; documentação mais escassa.',
+            '• <b>PyQt / PySide6</b> ✘ — ~60 MB de instalação; licença LGPL; complexidade excessiva.',
             s['topico'],
-        ),
-        Paragraph(
-            '• <b>Dear PyGui</b> ✘ — voltado para dashboards e jogos; API inadequada para '
-            'formulários de escritório.',
-            s['topico'],
-        ),
-        Paragraph(
-            '<b>Decisão:</b> tkinter foi escolhido por custo zero de instalação e suficiência '
-            'total para o caso de uso.',
-            s['corpo'],
         ),
 
-        # ── PASSO 2 ──
-        Paragraph('Passo 2 — Criação da janela principal', s['subsecao']),
+        Paragraph('Passo 2 — Layout split com painéis esquerdo e direito', s['subsecao']),
         *bloco_codigo([
-            'root = tk.Tk()',
-            'root.title("Gerador de Recibos")',
-            'root.resizable(False, False)',
-        ], s),
-        Paragraph(
-            '<b>resizable(False, False):</b> A janela tem largura fixa definida pelos Entry de '
-            'largura 50 caracteres. Permitir redimensionamento sem lógica de responsividade '
-            'distorceria os widgets — fixar o tamanho é mais simples e correto para este layout.',
-            s['corpo'],
-        ),
-
-        # ── PASSO 3 ──
-        Paragraph('Passo 3 — Campos de entrada com StringVar', s['subsecao']),
-        *bloco_codigo([
-            'var_xlsx = tk.StringVar()',
-            'entry_xlsx = tk.Entry(root, textvariable=var_xlsx, width=50)',
-        ], s),
-        Paragraph(
-            '<b>Por que StringVar?</b> O tkinter segue o padrão MVC: a <i>StringVar</i> é o '
-            'modelo e o <i>Entry</i> é a visão. Ler ou escrever o valor via '
-            '<i>var_xlsx.get() / var_xlsx.set()</i> evita referenciar diretamente o widget, '
-            'tornando o código mais limpo e testável.',
-            s['corpo'],
-        ),
-
-        # ── PASSO 4 ──
-        Paragraph('Passo 4 — Diálogos nativos de arquivo', s['subsecao']),
-        *bloco_codigo([
-            '# Abrir planilha:',
-            "caminho = filedialog.askopenfilename(",
-            "    title='Selecionar planilha',",
-            "    filetypes=[('Excel', '*.xlsx *.xls'), ('Todos', '*.*')],",
-            ')',
+            'ctk.set_appearance_mode("dark")',
+            'root = ctk.CTk()',
+            'root.geometry("1100x680")',
             '',
-            '# Salvar PDF:',
-            "caminho = filedialog.asksaveasfilename(",
-            "    title='Salvar PDF como',",
-            "    defaultextension='.pdf',",
-            "    filetypes=[('PDF', '*.pdf')],",
-            ')',
+            'main = ctk.CTkFrame(root, fg_color="transparent")',
+            'left  = ctk.CTkFrame(main, width=460)   # controles',
+            'right = ctk.CTkFrame(main)               # prévia',
         ], s),
-        Paragraph(
-            '<b>askopenfilename vs asksaveasfilename:</b> O primeiro só aceita arquivos '
-            'existentes; o segundo permite digitar um nome novo. O parâmetro '
-            '<i>defaultextension=".pdf"</i> garante a extensão correta mesmo que o usuário '
-            'não a escreva.',
-            s['corpo'],
-        ),
-        Paragraph(
-            '<b>Preenchimento automático do PDF:</b> Ao selecionar a planilha, o caminho do '
-            'PDF é preenchido automaticamente (mesmo nome, extensão _recibos.pdf) se o campo '
-            'ainda estiver vazio. Reduz o número de interações necessárias no caso mais comum.',
-            s['corpo'],
-        ),
 
-        # ── PASSO 5 ──
-        Paragraph('Passo 5 — Barra de progresso no modo indeterminate', s['subsecao']),
-        *bloco_codigo([
-            "progress = ttk.Progressbar(root, mode='indeterminate', length=400)",
-            '# Iniciar animação:',
-            'progress.start(10)   # intervalo de 10ms entre quadros',
-            '# Parar:',
-            'progress.stop()',
-        ], s),
+        Paragraph('Passo 3 — Lista de funcionários com CTkScrollableFrame', s['subsecao']),
         Paragraph(
-            '<b>Por que mode="indeterminate"?</b> A geração do PDF não reporta etapas '
-            'intermediárias — só se sabe quando começa e quando termina. O modo '
-            '<i>determinate</i> (barra que vai de 0% a 100%) seria semanticamente errado '
-            'pois induziria o usuário a inferir um percentual inexistente.',
-            s['corpo'],
-        ),
-        Paragraph(
-            '<b>Por que ttk e não tk?</b> O widget <i>tk.Progressbar</i> não existe. '
-            'O <i>ttk.Progressbar</i> é a implementação oficial, com visual integrado ao '
-            'tema do Windows.',
-            s['corpo'],
-        ),
-
-        # ── PASSO 6 ──
-        Paragraph('Passo 6 — Execução em thread separada (ponto crítico)', s['subsecao']),
-        Paragraph(
-            'Este é o componente mais importante da implementação. O tkinter roda em uma '
-            'única thread e processa todos os eventos (cliques, redesenhos, animações) '
-            'em seu <i>event loop</i>. Se <b>gerar_pdf()</b> fosse chamada diretamente '
-            'no botão, a janela congelaria completamente até o término — a barra de '
-            'progresso pararia e o Windows marcaria o programa como "Não respondendo".',
+            'Cada funcionário é uma linha com CTkCheckBox (variável BooleanVar), label com nome '
+            'e label com valor à direita. Todos marcados por padrão. Os pares '
+            '<i>(var, nome, trace_id)</i> são guardados em <i>checks_vars</i> para filtrar '
+            'na geração e para remover traces corretamente ao trocar de aba (ver seção de bugs).',
             s['corpo'],
         ),
         *bloco_codigo([
-            'def executar():',
-            '    # validações de entrada...',
-            '    btn_gerar.config(state="disabled")  # bloqueia novo clique',
-            '    progress.start(10)',
-            '    def tarefa():',
-            '        try:',
-            '            gerar_pdf(xlsx, pdf)',
-            '            root.after(0, lambda: concluido(pdf))',
-            '        except Exception as exc:',
-            '            root.after(0, lambda: erro(str(exc)))',
-            '    threading.Thread(target=tarefa, daemon=True).start()',
+            'for func in funcionarios:',
+            '    var = tk.BooleanVar(value=True)',
+            '    trace_id = var.trace_add("write", _atualizar_summary)',
+            '    checks_vars.append((var, func["nome"], trace_id))',
+            '    cb = ctk.CTkCheckBox(row, variable=var, ...)',
         ], s),
-        Paragraph(
-            '<b>threading.Thread:</b> Módulo da biblioteca padrão. Suficiente para tarefas '
-            'I/O-bound como escrita de arquivo — não exige asyncio nem concurrent.futures.',
-            s['corpo'],
-        ),
-        Paragraph(
-            '<b>daemon=True:</b> A thread é marcada como daemon para encerrar automaticamente '
-            'caso o usuário feche a janela antes do término, evitando processos zumbis.',
-            s['corpo'],
-        ),
-        Paragraph(
-            '<b>root.after(0, callback):</b> O tkinter não é thread-safe — widgets '
-            'NUNCA devem ser atualizados de dentro de outra thread. O método '
-            '<i>root.after(0, callback)</i> agenda a execução do callback no event loop '
-            'principal, tornando a atualização segura.',
-            s['corpo'],
-        ),
-        Paragraph(
-            '<b>try/except dentro da thread:</b> Erros em threads secundárias não '
-            'propagam para a thread principal — eles simplesmente desaparecem. O bloco '
-            'try/except captura a exceção e a envia ao event loop via root.after para '
-            'exibição ao usuário.',
-            s['corpo'],
-        ),
 
-        # ── PASSO 7 ──
-        Paragraph('Passo 7 — Diálogo pós-conclusão e abertura do arquivo', s['subsecao']),
+        Paragraph('Passo 4 — Painel de prévia com renderização em background thread', s['subsecao']),
+        Paragraph(
+            'Ao selecionar ou desmarcar funcionários, a prévia do primeiro selecionado '
+            'é renderizada em thread separada para não travar a UI. Um mecanismo de '
+            '<b>token de cancelamento</b> garante que apenas o resultado mais recente seja aplicado.',
+            s['corpo'],
+        ),
         *bloco_codigo([
-            "if messagebox.askyesno('Concluído',",
-            "                       f'PDF gerado:\\n{pdf}\\n\\nDeseja abrir o arquivo?'):",
-            '    os.startfile(pdf)',
+            'token = object()',
+            '_preview_token[0] = token',
+            '',
+            'def _render():',
+            '    pil_img = gerar_preview_pil(func, width=pw)',
+            '    if _preview_token[0] is not token:',
+            '        return  # resultado desatualizado — descarta',
+            '    def _apply():',
+            '        _clear_preview_image()   # limpa referência stale (ver seção de bugs)',
+            '        ctk_img = ctk.CTkImage(light_image=pil_img, dark_image=pil_img, ...)',
+            '        prev_label.configure(image=ctk_img, text="")',
+            '        prev_label._ctk_img_ref = ctk_img',
+            '    root.after(0, _apply)',
+            '',
+            'threading.Thread(target=_render, daemon=True).start()',
+        ], s),
+
+        Paragraph('Passo 5 — Execução da geração em thread separada', s['subsecao']),
+        *bloco_codigo([
+            'def tarefa():',
+            '    try:',
+            '        gerar_pdf_de_lista(funcionarios_sel, pdf)',
+            '        root.after(0, lambda: concluido(pdf))',
+            '    except Exception as exc:',
+            '        msg = str(exc)',
+            '        root.after(0, lambda: erro(msg))',
+            'threading.Thread(target=tarefa, daemon=True).start()',
         ], s),
         Paragraph(
-            '<b>messagebox.askyesno:</b> Preferido sobre abrir o arquivo automaticamente '
-            'para respeitar o fluxo do usuário — ele pode gerar vários PDFs em sequência '
-            'e não querer interrupções a cada um.',
-            s['corpo'],
-        ),
-        Paragraph(
-            '<b>os.startfile:</b> Abre o PDF com o programa padrão do sistema (Reader, '
-            'Edge, etc.) sem hardcodar um aplicativo específico. É a abordagem idiomática '
-            'no Windows.',
+            '<b>root.after(0, callback):</b> O customtkinter/tkinter não é thread-safe. '
+            'Toda atualização de widget deve ocorrer na thread principal via <i>root.after</i>. '
+            '<b>Captura da exceção antes do lambda:</b> em Python 3, a variável de um bloco '
+            '<i>except</i> é deletada ao sair do bloco — capturar <i>msg = str(exc)</i> '
+            'antes evita NameError no lambda.',
             s['corpo'],
         ),
 
-        # ── PASSO 8 ──
-        Paragraph('Passo 8 — Compatibilidade com o modo CLI', s['subsecao']),
+        Paragraph('Passo 6 — Compatibilidade com o modo CLI', s['subsecao']),
         *bloco_codigo([
             'def main():',
             '    if len(sys.argv) < 2:',
@@ -844,14 +920,7 @@ def secao_gui(s: dict) -> list:
             '        return',
             '    # com argumentos → comportamento CLI original inalterado',
         ], s),
-        Paragraph(
-            'A GUI é uma camada adicionada <b>sobre</b> a lógica existente, não uma '
-            'substituição. Scripts de automação, agendamentos via Task Scheduler e outros '
-            'usos programáticos continuam funcionando sem nenhuma alteração.',
-            s['corpo'],
-        ),
 
-        # ── TABELA RESUMO ──
         Spacer(1, 0.4 * cm),
         Paragraph('Resumo dos componentes', s['subsecao']),
         tabela,
@@ -1137,9 +1206,8 @@ def secao_executavel(s: dict) -> list:
         Paragraph('<b>2. root.iconbitmap() na inicialização da janela</b>', s['subsecao']),
         *bloco_codigo([
             'def iniciar_gui():',
-            '    root = tk.Tk()',
+            '    root = ctk.CTk()   # customtkinter — não tk.Tk()',
             '    root.title("Gerador de Recibos")',
-            '    root.resizable(False, False)',
             '',
             '    ico = resource_path("recibo.ico")',
             '    if os.path.exists(ico):',
@@ -1192,23 +1260,301 @@ def secao_futuro(s: dict) -> list:
         *divisor(),
         Paragraph('9. PRÓXIMOS PASSOS PREVISTOS', s['secao']),
         Paragraph(
-            'O programa já conta com interface gráfica, ícone personalizado e executável Windows. '
+            'O programa já conta com interface gráfica, seleção de aba, filtro de funcionários, '
+            'ícone personalizado e executável Windows. '
             'As melhorias abaixo são sugestões para evoluções futuras.',
             s['corpo'],
         ),
         Paragraph(
-            '• <b>Pré-visualização:</b> mostrar os recibos na tela antes de salvar o PDF.',
+            '• <b>Período da semana no recibo:</b> exibir o intervalo de datas da semana '
+            '(ex: "04 a 09 de abril de 2025") em vez de apenas a data de geração.',
             s['topico'],
         ),
         Paragraph(
-            '• <b>Personalização:</b> permitir alterar dados da empresa (CNPJ, endereço) '
+            '• <b>Personalização da empresa:</b> permitir alterar nome, CNPJ e endereço '
             'direto pela interface sem editar o código.',
             s['topico'],
         ),
         Paragraph(
-            '• <b>Histórico:</b> salvar um registro de quais recibos foram gerados e quando.',
+            '• <b>CPF no recibo:</b> incluir uma coluna de CPF na planilha e imprimir o '
+            'dado em cada recibo para maior validade jurídica.',
             s['topico'],
         ),
+        Paragraph(
+            '• <b>Numeração dos recibos:</b> adicionar número sequencial (ex: "Recibo nº 001/2025") '
+            'para facilitar controle e arquivo.',
+            s['topico'],
+        ),
+    ]
+
+
+def secao_testes(s: dict) -> list:
+    dados_classes = [
+        ['Classe de teste', 'O que testa'],
+        ['TestFmtValor', 'Formatação monetária brasileira (R$ 1.234,56, zeros, milhão, centavo mínimo)'],
+        ['TestValorPorExtenso', 'Conversão de valores numéricos para texto em pt_BR, incluindo centavos e valores negativos'],
+        ['TestFormatarData', 'Formato "5 de janeiro de 2025", cobertura dos 12 meses, dia sem zero à esquerda'],
+        ['TestLerFuncionarios', 'Leitura da planilha xlsx: funcionários válidos, planilha vazia, total zero/negativo ignorado, linha TOTAL ignorada, arquivo inexistente'],
+        ['TestGerarPdfDeLista', 'Geração do PDF: arquivo criado, tamanho mínimo, lista vazia lança ValueError, múltiplos funcionários, XML injection, tamanho cresce com volume'],
+        ['TestGerarPreviewPil', 'Renderização da prévia PIL: tipo retornado, largura correta, caracteres especiais no nome, valor alto, thread safety com 8 threads simultâneas'],
+        ['TestResourcePath', 'Localização de recursos: fora do PyInstaller (usa __file__), dentro do PyInstaller (usa sys._MEIPASS via monkeypatch)'],
+    ]
+
+    tabela = mk_tabela(
+        dados_classes,
+        [4.2 * cm, 12.4 * cm],
+        colors.HexColor('#2e4057'),
+        s,
+    )
+
+    return [
+        *divisor(),
+        Paragraph('10. SUITE DE TESTES (PYTEST)', s['secao']),
+        Paragraph(
+            'Todas as funções críticas do programa são cobertas por uma suite de testes '
+            'automatizados usando <b>pytest</b>. Os testes garantem que mudanças futuras '
+            'no código não quebrem o comportamento esperado.',
+            s['corpo'],
+        ),
+
+        Paragraph('Executar os testes', s['subsecao']),
+        *bloco_codigo([
+            '# Instalar pytest (apenas uma vez)',
+            'pip install pytest openpyxl',
+            '',
+            '# Rodar todos os testes',
+            'python -m pytest test_gerar_recibos.py -v',
+        ], s),
+        Paragraph(
+            '<b>Cobertura atual: 29 testes, todos passando.</b>',
+            s['corpo'],
+        ),
+
+        Paragraph('Classes de teste', s['subsecao']),
+        tabela,
+        Spacer(1, 0.4 * cm),
+
+        Paragraph('Estratégia de fixtures', s['subsecao']),
+        Paragraph(
+            'As fixtures do pytest criam planilhas <i>.xlsx</i> temporárias em <i>tmp_path</i> '
+            '(pasta descartada automaticamente após cada teste) para cobrir três cenários:',
+            s['corpo'],
+        ),
+        Paragraph('• <b>xlsx_simples</b> — 2 funcionários válidos + linha TOTAL para verificar leitura correta.', s['topico']),
+        Paragraph('• <b>xlsx_vazia</b> — apenas cabeçalho, para verificar retorno de lista vazia.', s['topico']),
+        Paragraph('• <b>xlsx_invalidos</b> — funcionários com total zero e negativo, para verificar filtro.', s['topico']),
+
+        Paragraph('Thread safety da prévia', s['subsecao']),
+        Paragraph(
+            'O teste <i>test_thread_safety</i> dispara 8 threads simultâneas renderizando '
+            'previews com <i>gerar_preview_pil</i>. Cada thread recebe um funcionário '
+            'diferente e o resultado é verificado. A ausência de erros confirma que a '
+            'função é safe para uso concorrente.',
+            s['corpo'],
+        ),
+        *bloco_codigo([
+            'def test_thread_safety(self):',
+            '    results, errors = [], []',
+            '    def render(i):',
+            '        try:',
+            '            img = gerar_preview_pil({...}, width=320)',
+            '            results.append(img.size)',
+            '        except Exception as exc:',
+            '            errors.append(str(exc))',
+            '    threads = [threading.Thread(target=render, args=(i,)) for i in range(8)]',
+            '    for t in threads: t.start()',
+            '    for t in threads: t.join()',
+            '    assert errors == []',
+        ], s),
+    ]
+
+
+def secao_logging(s: dict) -> list:
+    return [
+        *divisor(),
+        Paragraph('11. SISTEMA DE LOG PERSISTENTE', s['secao']),
+        Paragraph(
+            'O programa grava um log rotativo em arquivo para facilitar o diagnóstico '
+            'de problemas sem acesso ao terminal — especialmente quando executado como '
+            '<i>.exe</i> em modo windowed.',
+            s['corpo'],
+        ),
+
+        Paragraph('Localização do arquivo de log', s['subsecao']),
+        *bloco_codigo([
+            r'%APPDATA%\GeradorRecibos\gerador.log',
+            r'# Exemplo: C:\Users\cleit\AppData\Roaming\GeradorRecibos\gerador.log',
+        ], s),
+
+        Paragraph('Configuração do RotatingFileHandler', s['subsecao']),
+        *bloco_codigo([
+            'def setup_logging() -> str:',
+            '    app_dir = os.path.join(os.environ["APPDATA"], "GeradorRecibos")',
+            '    os.makedirs(app_dir, exist_ok=True)',
+            '    log_path = os.path.join(app_dir, "gerador.log")',
+            '    fh = logging.handlers.RotatingFileHandler(',
+            '        log_path,',
+            '        maxBytes=1_048_576,  # 1 MB por arquivo',
+            '        backupCount=3,       # mantém gerador.log.1, .2, .3',
+            '        encoding="utf-8",',
+            '    )',
+            '    fh.setFormatter(logging.Formatter(',
+            '        "%(asctime)s %(levelname)-8s %(message)s",',
+            '        datefmt="%Y-%m-%d %H:%M:%S",',
+            '    ))',
+            '    logging.getLogger().setLevel(logging.WARNING)  # root: suprime ruído',
+            '    for name in ("gerar_recibos", "__main__"):',
+            '        lg = logging.getLogger(name)',
+            '        lg.setLevel(logging.DEBUG)',
+            '        lg.addHandler(fh)',
+        ], s),
+
+        Paragraph('Decisões técnicas', s['subsecao']),
+        Paragraph(
+            '<b>Por que %APPDATA%?</b> Em Windows, aplicativos não devem gravar arquivos '
+            'na pasta do executável — pode estar em Program Files (sem permissão de escrita). '
+            'O <i>%APPDATA%</i> é sempre gravável pelo usuário atual.',
+            s['corpo'],
+        ),
+        Paragraph(
+            '<b>Por que rotativo?</b> O programa pode ser usado semanalmente por anos. '
+            'Um log sem rotação cresceria indefinidamente. Com 1 MB + 3 backups, o histórico '
+            'total é de 4 MB — suficiente para diagnóstico sem consumo excessivo de disco.',
+            s['corpo'],
+        ),
+        Paragraph(
+            '<b>Por que root em WARNING e loggers da app em DEBUG?</b> Pandas, Pillow e '
+            'outras bibliotecas emitem mensagens internas de baixo interesse. Manter o root '
+            'em WARNING suprime esse ruído. Os loggers <i>"gerar_recibos"</i> e '
+            '<i>"__main__"</i> em DEBUG capturam tudo que importa para diagnóstico.',
+            s['corpo'],
+        ),
+        Paragraph(
+            '<b>Por que dois nomes de logger?</b> O objeto '
+            '<i>log = logging.getLogger(__name__)</i> recebe o nome <i>"gerar_recibos"</i> '
+            'quando importado como módulo (pelos testes, por exemplo), mas <i>"__main__"</i> '
+            'quando executado diretamente. Configurar ambos garante cobertura nos dois modos.',
+            s['corpo'],
+        ),
+
+        Paragraph('Exemplo de saída no log', s['subsecao']),
+        *bloco_codigo([
+            '2026-04-19 06:52:39 INFO     GeradorRecibos iniciando',
+            '2026-04-19 06:52:49 INFO     carregar_funcionarios: arquivo=\'...\' aba=\'Ponto 06-11.04.2026\'',
+            '2026-04-19 06:52:49 INFO     carregar_funcionarios: 18 funcionario(s) carregados',
+            '2026-04-19 07:04:22 INFO     carregar_funcionarios: 17 funcionario(s) carregados',
+        ], s),
+    ]
+
+
+def secao_bugs_resolvidos(s: dict) -> list:
+    return [
+        *divisor(),
+        Paragraph('12. BUGS RESOLVIDOS — DETALHES TÉCNICOS', s['secao']),
+        Paragraph(
+            'Dois bugs não triviais foram encontrados e corrigidos durante o desenvolvimento '
+            'da interface gráfica. Ambos envolvem o comportamento interno do customtkinter '
+            'e do tkinter — documentados aqui para referência futura.',
+            s['corpo'],
+        ),
+
+        # ── BUG 1 ──
+        Paragraph('Bug 1 — CTkLabel não limpa a imagem ao receber image=None', s['subsecao']),
+        Paragraph(
+            '<b>Sintoma:</b> Ao trocar de aba na planilha, o log registrava '
+            '<i>TclError: image "pyimage2" doesn\'t exist</i> dentro de '
+            '<i>prev_label.configure(image=None, text=\'...\')</i>.',
+            s['corpo'],
+        ),
+        Paragraph(
+            '<b>Causa raiz:</b> O método <i>CTkLabel._update_image()</i> do customtkinter '
+            'não chama <i>self._label.configure(image=\'\')</i> quando <i>self._image</i> '
+            'passa a ser <i>None</i> — ele apenas atualiza o estado Python interno. '
+            'O widget tkinter subjacente mantém a referência ao nome do <i>PhotoImage</i> '
+            '(<i>"pyimage2"</i>, etc.). Quando o objeto Python <i>CTkImage</i> é coletado '
+            'pelo GC, o <i>PhotoImage</i> é deletado do Tcl — mas o label ainda referencia '
+            'o nome. O <i>configure</i> processa o parâmetro <i>text</i> antes do '
+            '<i>image</i> (linha 204 vs 216 em <i>ctk_label.py</i>), causando o '
+            '<i>TclError</i> antes mesmo de tentar limpar a imagem.',
+            s['corpo'],
+        ),
+        Paragraph(
+            '<b>Fix aplicado:</b> helper <i>_clear_preview_image()</i> que limpa o widget '
+            'tkinter interno diretamente via <i>prev_label._label.configure(image=\'\')</i> '
+            '<b>antes</b> de liberar a referência Python, contornando o bug interno do customtkinter:',
+            s['corpo'],
+        ),
+        *bloco_codigo([
+            'def _clear_preview_image():',
+            '    """CTkLabel._update_image() não limpa o widget tkinter quando image=None.',
+            '    Limpar diretamente antes de liberar o CTkImage evita TclError."""',
+            '    prev_label._ctk_img_ref = None',
+            '    try:',
+            "        prev_label._label.configure(image='')",
+            '    except Exception:',
+            '        pass',
+        ], s),
+        Paragraph(
+            'A função é chamada em três pontos: em <i>_clear_scroll()</i> (troca de aba), '
+            'em <i>_atualizar_preview()</i> quando não há funcionário selecionado, e '
+            'em <i>_apply()</i> (callback da thread de renderização) antes de aplicar '
+            'a nova imagem.',
+            s['corpo'],
+        ),
+
+        # ── BUG 2 ──
+        Paragraph('Bug 2 — Trace de BooleanVar causava TclError ao trocar de aba', s['subsecao']),
+        Paragraph(
+            '<b>Sintoma:</b> Ao trocar de aba, a lista de funcionários desaparecia '
+            'ou ficava em branco mesmo com dados válidos na planilha. O log mostrava '
+            'a abertura do arquivo mas sem a mensagem de funcionários carregados.',
+            s['corpo'],
+        ),
+        Paragraph(
+            '<b>Causa raiz:</b> Em <i>_clear_scroll()</i>, todos os traces dos '
+            '<i>BooleanVar</i> eram removidos antes de destruir os widgets. '
+            'O <i>CTkCheckBox.destroy()</i> tentava remover seu próprio trace interno '
+            'do mesmo <i>BooleanVar</i> — mas ele já havia sido removido. '
+            'O <i>TclError</i> resultante era silenciado pelo tkinter, deixando '
+            '<i>list_frame[0]</i> apontando para um frame destruído. '
+            'Na próxima carga, novos widgets eram criados como filhos de um frame '
+            'destruído — cascata de erros.',
+            s['corpo'],
+        ),
+        Paragraph(
+            '<b>Fix aplicado:</b> armazenar o ID exato de cada trace em uma 3-tupla '
+            '<i>(var, nome, trace_id)</i> e remover <b>somente</b> o trace da aplicação '
+            'pelo ID, preservando o trace interno do <i>CTkCheckBox</i>:',
+            s['corpo'],
+        ),
+        *bloco_codigo([
+            '# Ao criar o checkbox:',
+            'trace_id = var.trace_add("write", _atualizar_summary)',
+            'checks_vars.append((var, func["nome"], trace_id))',
+            '',
+            '# Em _clear_scroll() — remove apenas o nosso trace:',
+            'for var, _nome, trace_id in checks_vars:',
+            '    try:',
+            '        var.trace_remove("write", trace_id)',
+            '    except Exception:',
+            '        pass',
+            'checks_vars.clear()',
+        ], s),
+        Paragraph(
+            'O <i>_make_list_frame()</i> também ganhou um <i>try/except</i> no '
+            '<i>destroy()</i> para garantir que o novo frame seja sempre criado '
+            'mesmo se a destruição do anterior falhar:',
+            s['corpo'],
+        ),
+        *bloco_codigo([
+            'def _make_list_frame():',
+            '    try:',
+            '        list_frame[0].destroy()',
+            '    except Exception:',
+            '        pass',
+            '    list_frame[0] = ctk.CTkFrame(scroll, fg_color="transparent")',
+            '    list_frame[0].pack(fill="x")',
+        ], s),
     ]
 
 
@@ -1244,6 +1590,9 @@ def gerar_documentacao():
     story += secao_gui(s)
     story += secao_executavel(s)
     story += secao_futuro(s)
+    story += secao_testes(s)
+    story += secao_logging(s)
+    story += secao_bugs_resolvidos(s)
     story += divisor()
     story.append(Spacer(1, 0.5 * cm))
     story.append(Paragraph('Fim da documentação.', s['rodape']))
